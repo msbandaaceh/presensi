@@ -1,0 +1,31 @@
+/* screen styles */
+@media screen {
+
+    body {
+      font-size: 1em;
+      color: white;
+      background-color: black;
+      margin: 2em;
+    }
+
+    p {
+        color: red;
+    }
+  
+  }
+  
+  /* print styles */
+  @media print {
+  
+    body {
+      font-size: 16px;
+      color: black;
+      background-color: white;
+      margin: 0;
+    }
+
+    p {
+        color: red;
+    }
+  
+  }
