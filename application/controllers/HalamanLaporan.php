@@ -1,6 +1,15 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+/**
+ * @property CI_Config $config
+ * @property CI_Input $input
+ * @property CI_Model $model
+ * @property CI_Encryption $encryption
+ * @property CI_Session $session
+ * @property CI_Form_validation $form_validation
+ */
+
 class HalamanLaporan extends MY_Controller
 {
     ########################################
@@ -9,29 +18,19 @@ class HalamanLaporan extends MY_Controller
 
     public function index()
     {
-        if ($this->session->userdata('status_plt') == '1') {
-            $ip = null;
-            $token = null;
-        } else {
-            $cekUser = $this->model->get_seleksi_pengguna($this->session->userdata("userid"));
-            $ip = $cekUser->row()->ip;
-            $token = $cekUser->row()->token;
-        }
-
-        if ($ip && $token) {
-            $this->session->set_userdata("ip_now", $ip);
-            $this->session->set_userdata("token_now", $token);
-        }
-
-        $data['presensi'] = $this->absen->all_pres_pengguna($this->session->userdata("userid"));
-
+        $data['presensi'] = $this->model->all_pres_pengguna($this->session->userdata("userid"));
+        $data['page'] = 'laporan_harian';
         $this->session->set_userdata("tanggal", date("Y-m"));
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $data['peran'] = '';
+        }
 
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporan/sidebar');
-        $this->load->view('halamanabsen/laporan/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
-
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/harian/lis_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
     #############################################################
@@ -41,12 +40,11 @@ class HalamanLaporan extends MY_Controller
     public function laporan_bulan()
     {
         $this->form_validation->set_rules('bulan', 'Bulan', 'trim|required');
-
-        $this->form_validation->set_message('required', '%s Tidak Boleh Kosong');
+        $this->form_validation->set_message(['required' => '%s Tidak Boleh Kosong']);
 
         if ($this->form_validation->run() == FALSE) {
             //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
-            $this->session->set_flashdata('info', '0');
+            $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', form_error('bulan'));
             redirect('laporan', validation_errors());
             return;
@@ -56,15 +54,23 @@ class HalamanLaporan extends MY_Controller
         $bulan = DateTime::createFromFormat('F Y', $month);
         $konversi_bulan = $bulan->format('Y-m');
         $bulan_fix = $konversi_bulan . '-00';
-        //die(var_dump($bulan_fix));
         $this->session->set_userdata("tanggal", $konversi_bulan);
 
-        $data['presensi'] = $this->absen->all_pres_pengguna_bulan($this->session->userdata("userid"), $bulan_fix);
-        //die(var_dump($data));
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporan/sidebar');
-        $this->load->view('halamanabsen/laporan/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
+        $data['presensi'] = $this->model->all_pres_pengguna_bulan($this->session->userdata("userid"), $bulan_fix);
+        $data['page'] = 'laporan_harian';
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $data['peran'] = '';
+        }
+
+        $this->session->set_flashdata('info', '1');
+        $this->session->set_flashdata('pesan_sukses', "Data ditemukan");
+
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/harian/lis_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
     #############################################
@@ -72,19 +78,30 @@ class HalamanLaporan extends MY_Controller
     #############################################
     public function laporan_satker()
     {
-        $data['hakim'] = $this->absen->pres_hakim_now();
-        $data['cakim'] = $this->absen->pres_cakim_now();
-        $data['pns'] = $this->absen->pres_pns_now();
-        $data['pppk'] = $this->absen->pres_pppk_now();
-        $data['honor'] = $this->absen->pres_honor_now();
+        $data['hakim'] = $this->model->pres_hakim_now();
+        $data['cakim'] = $this->model->pres_cakim_now();
+        $data['pns'] = $this->model->pres_pns_now();
+        $data['pppk'] = $this->model->pres_pppk_now();
+        $data['honor'] = $this->model->pres_honor_now();
+        $data['page'] = 'laporan_satker';
         //die(var_dump($data));
+
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator'])) {
+            $data['peran'] = 'admin';
+        } elseif ($this->session->userdata('peran') == 'petugas') {
+            $data['peran'] = 'petugas';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
 
         $this->session->set_userdata("tanggal", date("Y-m-d"));
 
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporansatker/sidebar');
-        $this->load->view('halamanabsen/laporansatker/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/satker/lis_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
     ####################################################################
@@ -94,15 +111,22 @@ class HalamanLaporan extends MY_Controller
     public function laporan_satker_bulan()
     {
         $this->form_validation->set_rules('bulan', 'Tanggal', 'trim|required');
-
-        $this->form_validation->set_message('required', '%s Tidak Boleh Kosong');
+        $this->form_validation->set_message(['required' => '%s Tidak Boleh Kosong']);
 
         if ($this->form_validation->run() == FALSE) {
             //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
-            $this->session->set_flashdata('info', '0');
+            $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', form_error('bulan'));
             redirect('laporan_satker', validation_errors());
             return;
+        }
+
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
         }
 
         $month = $this->input->post('bulan');
@@ -111,18 +135,20 @@ class HalamanLaporan extends MY_Controller
         //die(var_dump($konversi_bulan));
         $this->session->set_userdata("tanggal", $konversi_bulan);
 
-        $data['hakim'] = $this->absen->pres_hakim_bulan($konversi_bulan);
-        $data['cakim'] = $this->absen->pres_cakim_bulan($konversi_bulan);
-        //die(var_dump($data));
-        $data['pns'] = $this->absen->pres_pns_bulan($konversi_bulan);
-        $data['pppk'] = $this->absen->pres_pppk_bulan($konversi_bulan);
-        //die(var_dump($data));
-        $data['honor'] = $this->absen->pres_honor_bulan($konversi_bulan);
-        //die(var_dump($data));
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporansatker/sidebar');
-        $this->load->view('halamanabsen/laporansatker/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
+        $data['hakim'] = $this->model->pres_hakim_bulan($konversi_bulan);
+        $data['cakim'] = $this->model->pres_cakim_bulan($konversi_bulan);
+        $data['pns'] = $this->model->pres_pns_bulan($konversi_bulan);
+        $data['pppk'] = $this->model->pres_pppk_bulan($konversi_bulan);
+        $data['honor'] = $this->model->pres_honor_bulan($konversi_bulan);
+        $data['page'] = 'laporan_satker';
+
+        $this->session->set_flashdata('info', '1');
+        $this->session->set_flashdata('pesan_sukses', "Data ditemukan");
+
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/satker/lis_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
     ############################################################################
@@ -131,11 +157,21 @@ class HalamanLaporan extends MY_Controller
 
     public function edit()
     {
-        $id = $this->encrypt->decode(base64_decode($this->input->post('id')));
-        $userid = $this->encrypt->decode(base64_decode($this->input->post('userid')));
+        $id = $this->encryption->decrypt(base64_decode($this->input->post('id')));
+        $userid = $this->encryption->decrypt(base64_decode($this->input->post('userid')));
 
-        $user = $this->model->get_seleksi_pengguna($userid);
-        $nama = $user->row()->fullname;
+        $params = [
+            'tabel' => 'v_users',
+            'kolom_seleksi' => 'userid',
+            'seleksi' => $userid
+        ];
+
+        $result = $this->apihelper->get('apiclient/get_data_seleksi', $params);
+
+        if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
+            $user_data = $result['response']['data'][0];
+            $nama = $user_data['fullname'];
+        }
 
         $ket = array('' => "-- Keterangan --", 'Manual Presensi' => 'Manual Presensi', 'Tidak Presensi' => 'Tidak Presensi', 'Izin Terlambat Masuk' => 'Izin Terlambat Masuk', 'Izin Tidak Masuk *Hakim' => 'Izin Tidak Masuk *Hakim', 'Piket Malam' => 'Piket Malam', 'Work From Home' => 'Work From Home', 'Tanpa Keterangan' => 'Tanpa Keterangan', 'Dinas Luar' => 'Dinas Luar', 'Cuti Tahunan' => 'Cuti Tahunan', 'Cuti Sakit' => 'Cuti Sakit', 'Cuti Melahirkan' => 'Cuti Melahirkan', 'Cuti Alasan Penting' => 'Cuti Alasan Penting', 'Cuti Besar' => 'Cuti Besar', 'Libur' => 'Libur');
 
@@ -145,7 +181,7 @@ class HalamanLaporan extends MY_Controller
             $pulang = "";
             $ktrngn = form_dropdown('ket', $ket, '', 'class="form-control show-tick"  id="ket"');
         } else {
-            $cariPresensi = $this->absen->get_presensi_data($id);
+            $cariPresensi = $this->model->get_presensi_data($id);
             if ($cariPresensi->masuk) {
                 $masuk = $this->tanggalhelper->konversiJam($cariPresensi->masuk);
             } else {
@@ -178,15 +214,24 @@ class HalamanLaporan extends MY_Controller
     #   MENAMPILKAN DATA PRESENSI SELURUH PEGAWAI    #
     ##################################################
 
-    public function show_all()
+    public function show_all_pegawai()
     {
-        $pegawai = $this->model->list_pengguna_aktif();
-        $nama = array();
-        $nama[''] = "-- Tampilkan Seluruh Pegawai --";
-        foreach ($pegawai->result() as $row) {
-            $nama[$row->userid] = $row->fullname;
+        $params = [
+            'tabel' => 'v_users',
+            'kolom_seleksi' => 'status_pegawai',
+            'seleksi' => '1'
+        ];
+
+        $result = $this->apihelper->get('apiclient/get_data_seleksi', $params);
+
+        if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
+            $user_data = $result['response']['data'];
+            $nama = array();
+            $nama[''] = "-- Tampilkan Seluruh Pegawai --";
+            foreach ($user_data as $row) {
+                $nama[$row['userid']] = $row['fullname'];
+            }
         }
-        //die(var_dump($nama));
 
         $list = form_dropdown('pegawai', $nama, '', 'class="form-control show-tick" id="pegawai"');
         echo json_encode(
@@ -203,23 +248,23 @@ class HalamanLaporan extends MY_Controller
     ##############################################
     public function simpan_edit_presensi()
     {
-        $id = html_purify($this->input->post('id'));
-        $userid = html_purify($this->input->post('userid'));
-        $tgl = html_purify($this->input->post('tgl'));
-        if (html_purify($this->input->post('masuk'))) {
-            $masuk = html_purify($this->input->post('masuk'));
+        $id = $this->input->post('id');
+        $userid = $this->input->post('userid');
+        $tgl = $this->input->post('tgl');
+        if ($this->input->post('masuk')) {
+            $masuk = $this->input->post('masuk');
         } else {
             $masuk = NULL;
         }
 
-        if (html_purify($this->input->post('pulang'))) {
-            $pulang = html_purify($this->input->post('pulang'));
+        if ($this->input->post('pulang')) {
+            $pulang = $this->input->post('pulang');
         } else {
             $pulang = NULL;
         }
 
-        if (html_purify($this->input->post('ket'))) {
-            $ket = html_purify($this->input->post('ket'));
+        if ($this->input->post('ket')) {
+            $ket = $this->input->post('ket');
         } else {
             $ket = NULL;
         }
@@ -235,7 +280,7 @@ class HalamanLaporan extends MY_Controller
                 'modified_on' => date('Y-m-d H:i:s')
             );
 
-            $querySimpan = $this->absen->update_presensi($dataPengguna, $id);
+            $querySimpan = $this->model->update_presensi($dataPengguna, $id);
 
         } else {
             $dataPengguna = array(
@@ -247,7 +292,7 @@ class HalamanLaporan extends MY_Controller
                 'created_on' => date('Y-m-d H:i:s')
             );
 
-            $querySimpan = $this->absen->simpan_presensi($dataPengguna);
+            $querySimpan = $this->model->simpan_presensi($dataPengguna);
         }
 
         if ($querySimpan == 1) {
@@ -267,8 +312,8 @@ class HalamanLaporan extends MY_Controller
     ################################################
     public function cetak_laporan_masuk()
     {
-        $jenis = html_purify($this->input->post('jenis'));
-        $tgl = html_purify($this->input->post('tgl'));
+        $jenis = $this->input->post('jenis');
+        $tgl = $this->input->post('tgl');
 
         //die(var_dump($jenis.' dan '.$tgl));
         switch ($jenis) {
@@ -288,9 +333,9 @@ class HalamanLaporan extends MY_Controller
 
         //die(var_dump($data['jenis']));
 
-        $data['presensi'] = $this->absen->pres_harian($jenis, $tgl);
+        $data['presensi'] = $this->model->presensi_harian($jenis, $tgl);
 
-        $this->load->view('halamanabsen/laporan_masuk', $data);
+        $this->load->view('halamanlaporan/laporan_masuk', $data);
     }
 
     #################################################
@@ -298,8 +343,8 @@ class HalamanLaporan extends MY_Controller
     #################################################
     public function cetak_laporan_pulang()
     {
-        $jenis = html_purify($this->input->post('jenis'));
-        $tgl = html_purify($this->input->post('tgl'));
+        $jenis = $this->input->post('jenis');
+        $tgl = $this->input->post('tgl');
 
         switch ($jenis) {
             case 1:
@@ -316,9 +361,9 @@ class HalamanLaporan extends MY_Controller
                 break;
         }
 
-        $data['presensi'] = $this->absen->pres_harian($jenis, $tgl);
+        $data['presensi'] = $this->model->presensi_harian($jenis, $tgl);
 
-        $this->load->view('halamanabsen/laporan_pulang', $data);
+        $this->load->view('halamanlaporan/laporan_pulang', $data);
     }
 
     #########################################################################
@@ -331,12 +376,12 @@ class HalamanLaporan extends MY_Controller
         $peg = $this->input->post('pegawai');
         //die(var_dump($start_date.' ,'.$end_date));
         if ($peg != '') {
-            $data['presensi'] = $this->absen->semua_presensi_peg($start_date, $end_date, $peg);
+            $data['presensi'] = $this->model->semua_presensi_peg($start_date, $end_date, $peg);
         } else {
-            $data['presensi'] = $this->absen->semua_presensi($start_date, $end_date);
+            $data['presensi'] = $this->model->semua_presensi($start_date, $end_date);
         }
         //die(var_dump($data));
-        $this->load->view('halamanabsen/laporan_pegawai', $data);
+        $this->load->view('halamanlaporan/laporan_pegawai', $data);
         return;
     }
 
@@ -349,24 +394,42 @@ class HalamanLaporan extends MY_Controller
 
     public function laporan_apel()
     {
-        $data['apel'] = $this->absen->register_apel();
+        $data['apel'] = $this->model->register_apel();
+        $data['page'] = 'laporan_apel';
 
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporanapel/sidebar');
-        $this->load->view('halamanabsen/laporanapel/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
+
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/apel/lis_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
-    public function detail_laporan_apel()
+    public function laporan_apel_detail()
     {
         $tgl = $this->input->post('tgl');
         $data['tanggal'] = $tgl;
-        $data['peserta'] = $this->absen->get_detail_presensi($tgl);
+        $data['peserta'] = $this->model->get_detail_presensi($tgl);
+        $data['page'] = 'laporan_apel';
 
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporanapel/sidebar');
-        $this->load->view('halamanabsen/laporanapel/detail_report', $data);
-        $this->load->view('halamanabsen/footer');
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
+
+        $this->load->view('halamanlaporan/header', $data);
+        $this->load->view('halamanlaporan/sidebar');
+        $this->load->view('halamanlaporan/apel/detail_report');
+        $this->load->view('halamanlaporan/footer');
     }
 
     public function cetak_detail_laporan_apel()
@@ -408,6 +471,14 @@ class HalamanLaporan extends MY_Controller
     {
         $data['rapat'] = $this->absen->register_rapat();
 
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
+
         $this->load->view('halamanabsen/header');
         $this->load->view('halamanabsen/laporanrapat/sidebar');
         $this->load->view('halamanabsen/laporanrapat/lis_report', $data);
@@ -426,6 +497,14 @@ class HalamanLaporan extends MY_Controller
         $data['tanggal'] = $query->row()->tanggal;
         $data['agenda'] = $query->row()->agenda;
         $data['peserta'] = $this->absen->get_detail_presensi_rapat($id);
+
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
 
         $this->load->view('halamanabsen/header');
         $this->load->view('halamanabsen/laporanrapat/sidebar');
@@ -477,6 +556,14 @@ class HalamanLaporan extends MY_Controller
         $data['page'] = 'laporan_kegiatan';
         $data['kegiatan'] = $this->model->register_kegiatan();
 
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
+
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');
         $this->load->view('halamanutama/kegiatan/laporan/lis_report');
@@ -492,6 +579,14 @@ class HalamanLaporan extends MY_Controller
         $data['kegiatan'] = $query->row()->nama_kegiatan;
         $data['peserta'] = $this->model->get_detail_presensi_kegiatan($id);
         $data['page'] = 'laporan_kegiatan';
+
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $this->session->set_flashdata('info', '2');
+            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
+            redirect('laporan');
+        }
 
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');

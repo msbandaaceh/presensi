@@ -6,7 +6,7 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-    <title><?= $this->session->userdata('nama_app') ?> | <?= $this->session->userdata('deskripsi') ?></title>
+    <title><?= $this->session->userdata('nama_client_app') ?> | <?= $this->session->userdata('deskripsi_client_app') ?></title>
 
     <meta name="description" content="HADIR-IN (Sistem Informasi Manajemen Presensi Pegawai)" />
 
@@ -52,7 +52,13 @@
         <link rel="stylesheet"
             href="<?= site_url('assets/plugins/datatables-responsive/css/responsive.bootstrap4.min.css') ?>">
         <link rel="stylesheet" href="<?= site_url('assets/plugins/datatables-buttons/css/buttons.bootstrap4.min.css') ?>">
+    <?php }
+
+    if ($page == 'dashboard') { ?>
+        <link href="<?= site_url('assets/plugins/select2/css/select2.min.css') ?>" rel="stylesheet" />
     <?php } ?>
+
+
 
     <!-- Bootstrap Material Datetime Picker Css -->
     <link

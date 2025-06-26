@@ -169,6 +169,8 @@
 <script
     src="<?= site_url('assets/plugins/bootstrap-material-datetimepicker/js/bootstrap-material-datetimepicker.js') ?>"></script>
 
+<script src="<?= site_url('assets/plugins/select2/js/select2.min.js') ?>"></script>
+
 <?php
 if (in_array($page, ['kegiatan', 'laporan_kegiatan'])) {
     ?>
@@ -203,7 +205,6 @@ if ($this->session->flashdata('info')) {
 }
 ?>
 <script type="text/javascript">
-
     var config = {
         ipServer: '<?= $this->session->userdata('ip_satker') ?>',
         isMobile: '<?= $this->agent->is_mobile() ?>',

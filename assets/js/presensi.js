@@ -12,6 +12,8 @@ $(function () {
             salahJaringan();
         } else if (mobile != '1') {
             salahModePerangkat();
+        } else if (token == 'plh/plt') {
+            notifPlh();
         } else if (token == '') {
             simpanPerangkat();
         } else if (token != token_cookies) {
@@ -28,6 +30,8 @@ $(function () {
             salahJaringan();
         } else if (mobile != '1') {
             salahModePerangkat();
+        } else if (token == 'plh/plt') {
+            notifPlh();
         } else if (token == '') {
             simpanPerangkat();
         } else if (token != token_cookies) {
@@ -45,6 +49,8 @@ $(function () {
             salahJaringan();
         } else if (mobile != '1') {
             salahModePerangkat();
+        } else if (token == 'plh/plt') {
+            notifPlh();
         } else if (token == '') {
             simpanPerangkat();
         } else if (token != token_cookies) {
@@ -61,6 +67,8 @@ $(function () {
             salahJaringan();
         } else if (mobile != '1') {
             salahModePerangkat();
+        } else if (token == 'plh/plt') {
+            notifPlh();
         } else if (token == '') {
             simpanPerangkat();
         } else if (token != token_cookies) {
@@ -80,6 +88,12 @@ $(function () {
 
     if (document.getElementById('tblKegiatan')) {
         $("#tblKegiatan").DataTable({
+            "responsive": true, "lengthChange": true, "autoWidth": false
+        }).buttons().container().appendTo('#tblKegiatan_wrapper .col-md-6:eq(0)');
+    }
+
+    if (document.getElementById('tabel_apel')) {
+        $("#tabel_apel").DataTable({
             "responsive": true, "lengthChange": true, "autoWidth": false
         }).buttons().container().appendTo('#tblKegiatan_wrapper .col-md-6:eq(0)');
     }
@@ -360,6 +374,16 @@ function salahJaringan() {
     });
 }
 
+function notifPlh() {
+    swal({
+        icon: "error",
+        title: "<h4>Oops...<h4>",
+        type: "warning",
+        text: "<h5>Anda login sebagai plh/plt</br></br>Silakan login atas diri anda sendiri untuk melakukan presensi</h5>",
+        html: true
+    });
+}
+
 function salahModePerangkat() {
     swal({
         icon: "error",
@@ -496,7 +520,14 @@ function gagal(pesan) {
 }
 
 function BukaModal() {
-    $("#loader").show();
+    swal({
+        title: "Memuat...",
+        text: "Silakan tunggu sebentar.",
+        imageUrl: "assets/images/loader.gif", // loader custom jika mau (opsional)
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
     $("#modal-content").hide();
     $("#btnSimpan").attr("disabled", true);
     $.post('show_presensi', function (response) {
@@ -521,15 +552,14 @@ function BukaModal() {
                 $('#jam_pulang').toggleClass('bg-red bg-blue');
                 $('#btnSimpan').addClass('hidden');
             }
-
-            $("#loader").hide();
             $("#modal-content").show();
             $("#btnSimpan").attr("disabled", false);
+            swal.close();
         } else if (json.st == 0) {
             pesan('PERINGATAN', json.msg, '');
             $('#table_pegawai').DataTable().ajax.reload();
-            $("#loader").hide();
             $("#modal-content").show();
+            swal.close();
         }
     });
 }
@@ -570,7 +600,7 @@ function EditModal(id, userid) {
 }
 
 function loadPegawai() {
-    $.post('show_all_pegawai', function (response) {
+    $.post('show_list_pegawai', function (response) {
         var json = jQuery.parseJSON(response);
         if (json.st == 1) {
             $('#dataModal').modal('show');
@@ -627,6 +657,7 @@ function presensiRapat() {
         }
     });
 }
+
 function loadKegiatan(id) {
     $.post('show_data_kegiatan', {
         id: id
@@ -681,7 +712,7 @@ function presensiLainnya() {
 }
 
 function detailPresensiApel(tgl) {
-    var form = $('<form action="detail_apel" method="post">' +
+    var form = $('<form action="laporan_apel_detail" method="post">' +
         '<input type="hidden" name="tgl" value="' + tgl + '">' +
         '</form>');
     // Menambahkan formulir ke dalam dokumen
@@ -708,6 +739,200 @@ function detailPresensiRapat(id) {
     $('body').append(form);
     // Mengirimkan formulir
     form.submit();
+}
+
+function ModalRole(id) {
+    swal({
+        title: "Memuat...",
+        text: "Silakan tunggu sebentar.",
+        imageUrl: "assets/images/loader.gif", // loader custom jika mau (opsional)
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
+    if (id != '-1') {
+        $('#tabel-role').html('');
+    }
+
+    $.post('show_role',
+        { id: id },
+        function (response) {
+            swal.close();
+
+            try {
+                const json = JSON.parse(response); // pastikan response valid JSON
+                $('#pegawai_').html('');
+
+                let html = `<select class="form-control" id="pegawai" name="pegawai" style="width:100%">`;
+                json.pegawai.forEach(row => {
+                    html += `<option value="${row.userid}" data-nama="${row.fullname}" data-jabatan="${row.jabatan}">${row.fullname}</option>`;
+                });
+                html += `</select>`;
+                $('#pegawai_').append(html);
+
+                $('#pegawai').select2({
+                    dropdownParent: $('#role-pegawai'),
+                    templateResult: formatPegawaiOption,
+                    templateSelection: formatPegawaiSelection,
+                    width: '100%',
+                    placeholder: "Pilih pegawai"
+                });
+
+                $('#peran_').html('');
+                let role = `<select class="form-control" id="peran" name="peran" style="width:100%">`;
+                role += `<option value="validator">Validator Satker</option>`;
+                role += `<option value="petugas">Petugas Kepegawaian</option>`;
+                role += `</select>`;
+                $('#peran_').append(role);
+
+                $('#peran').select2({
+                    dropdownParent: $('#role-pegawai'),
+                    width: '100%',
+                    placeholder: "Pilih Peran"
+                });
+                $('#role-pegawai').modal('show');
+                if (id != '-1') {
+                    $('#id').val('');
+
+                    $('#id').val(json.id);
+                    $('#pegawai').val(json.editPegawai).trigger('change');
+                    $('#peran').val(json.editPeran).trigger('change');
+
+                    $('#pegawai').on('select2:opening select2:selecting', function (e) {
+                        e.preventDefault(); // mencegah dropdown terbuka
+                    });
+                } else {
+                    $('#tabel-role').html('');
+
+                    let data = `
+                    <table class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Role</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead><tbody>`;
+                    json.data_peran.forEach(row => {
+                        if (`${row.peran}` == 'validator') {
+                            var peran = 'Validator Satker';
+                        } else {
+                            var peran = 'Petugas Kepegawaian';
+                        }
+                        data += `
+                        <tr>
+                            <td>${row.nama}</td>
+                            <td>`;
+
+
+                        if (`${row.hapus}` == '0') {
+                            data += `<span class='badge bg-green'>${peran}</span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-xs bg-orange" id="editPeran" onclick="ModalRole('${row.id}')" title="Edit Peran">
+                                    <i class="material-icons">mode_edit</i>
+                                </button>
+                                <button type="button" class="btn btn-xs bg-red" id="hapusPeran" onclick="blokPeran('${row.id}')" title="Blok Pegawai">
+                                    <i class="material-icons">block</i>
+                                </button>`;
+                        } else {
+                            data += `<span class='badge bg-grey'>${peran}</span>
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-xs bg-success" id="hapusPeran" onclick="aktifPeran('${row.id}')" title="Aktifkan Pegawai">
+                                    <i class="material-icons">check</i>
+                                </button>`;
+                        }
+                        data += `
+                            </td>
+                        </tr>`;
+                    });
+                    data += `
+                        </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <span class='badge bg-green'>aktif</span>
+                        <span class='badge bg-grey'>non-aktif</span>
+                    </div>`;
+                    $('#tabel-role').append(data);
+                }
+            } catch (e) {
+                console.error("Gagal parsing JSON:", e);
+                $('#pegawai_').html('<div class="alert alert-danger">Gagal memuat data pegawai.</div>');
+            }
+        }
+    );
+}
+
+function aktifPeran(id) {
+    swal({
+        title: "Yakin ingin mengaktifkan peran pegawai?",
+        text: "Data peran ini akan diaktifkan kembali perannya.",
+        type: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#DD6B55",
+        confirmButtonText: "Ya, aktifkan!",
+        cancelButtonText: "Batal",
+        closeOnConfirm: false
+    }, function () {
+        // Eksekusi penghapusan setelah konfirmasi
+        $.post('aktif_peran', { id: id }, function (response) {
+            // kamu bisa parse response jika berupa JSON
+            swal("Berhasil!", "Peran telah aktifkan.", "success");
+            // misal reload tabel setelah hapus:
+            ModalRole('-1');
+        }).fail(function () {
+            swal("Gagal", "Terjadi kesalahan saat menghapus data.", "error");
+        });
+    });
+}
+
+function blokPeran(id) {
+    swal({
+        title: "Yakin ingin menonaktifkan peran pegawai?",
+        text: "Data peran ini akan dinonaktifkan perannya.",
+        type: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#DD6B55",
+        confirmButtonText: "Ya, nonaktifkan!",
+        cancelButtonText: "Batal",
+        closeOnConfirm: false
+    }, function () {
+        // Eksekusi penghapusan setelah konfirmasi
+        $.post('blok_peran', { id: id }, function (response) {
+            // kamu bisa parse response jika berupa JSON
+            swal("Berhasil!", "Peran telah nonaktifkan.", "success");
+            // misal reload tabel setelah hapus:
+            ModalRole('-1');
+        }).fail(function () {
+            swal("Gagal", "Terjadi kesalahan saat menghapus data.", "error");
+        });
+    });
+}
+
+function formatPegawaiOption(option) {
+    if (!option.id) return option.text;
+
+    const nama = $(option.element).data('nama');
+    const jabatan = $(option.element).data('jabatan');
+
+    return $(`
+        <div style="line-height:1.2">
+            <div style="font-weight:bold;">${nama}</div>
+            <div style="font-size:12px; color:#555;">${jabatan}</div>
+        </div>
+    `);
+}
+
+// Menampilkan teks terpilih di kotak select
+function formatPegawaiSelection(option) {
+    if (!option.id) return option.text;
+
+    const nama = $(option.element).data('nama');
+    const jabatan = $(option.element).data('jabatan');
+
+    return `${nama} > ${jabatan}`;
 }
 
 function hapusKegiatan(id) {

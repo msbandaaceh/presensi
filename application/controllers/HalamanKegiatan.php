@@ -7,6 +7,11 @@ class HalamanKegiatan extends MY_Controller
     {
         $data['kegiatan'] = $this->model->all_kegiatan();
         $data['page'] = 'kegiatan';
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $data['peran'] = '';
+        }
 
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');
@@ -58,7 +63,7 @@ class HalamanKegiatan extends MY_Controller
     {
         $this->form_validation->set_rules('nama_kegiatan', 'Nama Kegiatan', 'trim|required');
         $this->form_validation->set_rules('tgl', 'Nama Kegiatan', 'trim|required');
-        $this->form_validation->set_message('required', '%s Harus Diisi');
+        $this->form_validation->set_message(['required' => '%s Harus Diisi']);
 
         if ($this->form_validation->run() == FALSE) {
             //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));

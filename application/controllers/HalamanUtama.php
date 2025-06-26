@@ -1,11 +1,25 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
+/**
+ * @property CI_Config $config
+ * @property CI_Input $input
+ * @property CI_Encryption $encryption
+ * @property CI_Session $session
+ * @property CI_Form_validation $form_validation
+ */
+
 class HalamanUtama extends MY_Controller
 {
     public function index()
     {
+        #die(var_dump($this->session->all_userdata()));
         $data['page'] = 'dashboard';
+        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
+            $data['peran'] = 'admin';
+        } else {
+            $data['peran'] = '';
+        }
 
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');
@@ -191,21 +205,171 @@ class HalamanUtama extends MY_Controller
         return;
     }
 
-    public function simpan_perangkat()
+    public function show_role()
     {
-        $id = $this->session->userdata('userid');
+        $id = $this->input->post('id');
+        $data = [
+            "tabel" => "v_users",
+            "kolom_seleksi" => "status_pegawai",
+            "seleksi" => "1"
+        ];
 
-        $token = md5(uniqid());
+        $users = $this->apihelper->get('apiclient/get_data_seleksi', $data);
 
-        $dataPengguna = array(
-            'token_pres' => $token,
-            'modified_by' => $this->session->userdata('fullname'),
+        $pegawai = array();
+        if ($users['status_code'] === '200') {
+            foreach ($users['response']['data'] as $item) {
+                $pegawai[$item['userid']] = $item['nama_gelar'];
+            }
+        }
+
+        if ($id != '-1') {
+            $query = $this->model->get_seleksi('role_presensi', 'id', $id);
+
+            echo json_encode(
+                array(
+                    'pegawai' => $users['response']['data'],
+                    'role' => $pegawai,
+                    'id' => $query->row()->id,
+                    'editPegawai' => $query->row()->userid,
+                    'editPeran' => $query->row()->role
+                )
+            );
+        } else {
+            $dataPeran = $this->model->get_data_peran();
+            #die(var_dump($dataPeran));
+
+            echo json_encode(
+                array(
+                    'pegawai' => $users['response']['data'],
+                    'role' => $pegawai,
+                    'data_peran' => $dataPeran
+                )
+            );
+        }
+
+        return;
+
+        #die(var_dump($users["response"]["data"]));
+        #echo $users["response"]["data"];
+
+    }
+
+    public function simpan_peran()
+    {
+        $id = $this->input->post('id');
+        $pegawai = $this->input->post('pegawai');
+        $peran = $this->input->post('peran');
+
+        if ($id) {
+            $data = array(
+                'userid' => $pegawai,
+                'role' => $peran,
+                'modified_by' => $this->session->userdata('username'),
+                'modified_on' => date('Y-m-d H:i:s')
+            );
+
+            $query = $this->model->pembaharuan_data('role_presensi', $data, 'id', $id);
+        } else {
+            $query = $this->model->get_seleksi('role_presensi', 'userid', $pegawai);
+            if ($query->num_rows() > 0) {
+                $this->session->set_flashdata('info', '2');
+                $this->session->set_flashdata('pesan_gagal', 'Pegawai tersebut sudah memiliki peran');
+                redirect('');
+                return;
+            }
+
+            $data = array(
+                'userid' => $pegawai,
+                'role' => $peran,
+                'created_by' => $this->session->userdata('username'),
+                'created_on' => date('Y-m-d H:i:s')
+            );
+            $query = $this->model->simpan_data('role_presensi', $data);
+        }
+
+        if ($query == '1') {
+            $this->session->set_flashdata('info', '1');
+            $this->session->set_flashdata('pesan_sukses', 'Peran Pegawai telah disimpan');
+        } else {
+            $this->session->set_flashdata('info', '3');
+            $this->session->set_flashdata('pesan_gagal', 'Peran Pegawai gagal disimpan');
+        }
+
+        redirect('/');
+    }
+
+    public function aktif_peran()
+    {
+        $id = $this->input->post('id');
+
+        $data = array(
+            'hapus' => '0',
+            'modified_by' => $this->session->userdata('username'),
             'modified_on' => date('Y-m-d H:i:s')
         );
 
-        $querySimpan = $this->model->update_perangkat_user($dataPengguna, $id);
+        $query = $this->model->pembaharuan_data('role_presensi', $data, 'id', $id);
+        if ($query == '1') {
+            echo json_encode(
+                array(
+                    'st' => '1'
+                )
+            );
+        } else {
+            echo json_encode(
+                array(
+                    'st' => '0'
+                )
+            );
+        }
+    }
 
-        if ($querySimpan == 1) {
+    public function blok_peran()
+    {
+        $id = $this->input->post('id');
+
+        $data = array(
+            'hapus' => '1',
+            'modified_by' => $this->session->userdata('username'),
+            'modified_on' => date('Y-m-d H:i:s')
+        );
+
+        $query = $this->model->pembaharuan_data('role_presensi', $data, 'id', $id);
+        if ($query == '1') {
+            echo json_encode(
+                array(
+                    'st' => '1'
+                )
+            );
+        } else {
+            echo json_encode(
+                array(
+                    'st' => '0'
+                )
+            );
+        }
+    }
+
+    public function simpan_perangkat()
+    {
+        $id = $this->session->userdata('userid');
+        $token = md5(uniqid());
+
+        $payload = [
+            'tabel' => 'sys_users',
+            'kunci' => 'userid',
+            'id' => $id,
+            'data' => [
+                'token_pres' => $token,
+                'modified_by' => $this->session->userdata('fullname'),
+                'modified_on' => date('Y-m-d H:i:s')
+            ]
+        ];
+
+        $result = $this->apihelper->patch('api_update', $payload);
+
+        if ($result['status_code'] === 200 && !empty($result['response']['status'])) {
             $cookie_domain = $this->config->item('cookie_domain');
             setcookie(
                 'presensi_token',
@@ -250,7 +414,7 @@ class HalamanUtama extends MY_Controller
         $cekPresensi = $this->model->get_presensi_pengguna_hari_ini($userid);
         $cekPresensiKemarin = $this->model->get_presensi_pengguna_kemarin($userid);
 
-        if ($cekPresensi != 0) { // If already checked in today
+        if ($cekPresensi) { // If already checked in today
             if ($id_jabatan == '31') {
                 if (strtotime($cekPresensi->masuk) >= $batasKemarin) { // After 12:00 PM
                     $querySimpan = 2;
@@ -365,7 +529,7 @@ class HalamanUtama extends MY_Controller
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda Sudah Presensi Kedatangan Hari ini</br>Ngapain Presensi Lagi ?');
         } else {
-            $this->session->set_flashdata('info', '0');
+            $this->session->set_flashdata('info', '3');
             $this->session->set_flashdata('pesan_gagal', 'Presensi Gagal Simpan, Silakan Ulangi Lagi');
         }
         redirect('/');
@@ -374,7 +538,7 @@ class HalamanUtama extends MY_Controller
     public function simpan_presensi_rapat()
     {
         $this->form_validation->set_rules('rapat', 'Agenda Rapat', 'trim|required');
-        $this->form_validation->set_message('required', '%s Belum Dipilih');
+        $this->form_validation->set_message(['required' => '%s Belum Dipilih']);
 
         if ($this->form_validation->run() == FALSE) {
             //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
@@ -430,7 +594,7 @@ class HalamanUtama extends MY_Controller
     {
         $userid = $this->session->userdata("userid");
 
-        $cekPresensiApel = $this->model->get_pres_apel($userid);
+        $cekPresensiApel = $this->model->get_presensi_apel($userid);
 
         if ($cekPresensiApel) { // If already checked in today
             $querySimpan = 2;

@@ -92,7 +92,7 @@
                 <?php } ?>
 
                 <?php
-                if (in_array($page, ['laporan_kegiatan']) ) {
+                if (in_array($page, ['laporan_kegiatan'])) {
                     echo '<li class="active">';
                 } else {
                     echo '<li>';
@@ -107,7 +107,7 @@
                         <a href="<?= site_url('laporan') ?>">Laporan Harian</a>
                     </li>
                     <?php
-                    if ($this->session->userdata('level') == 'admin' || $this->session->userdata('jab_id') == '34') {
+                    if ($peran == 'admin') {
                         ?>
                         <li>
                             <a href="<?= site_url('laporan_satker') ?>">Laporan Satuan Kerja</a>
@@ -132,7 +132,7 @@
                 </ul>
                 </li>
                 <?php
-                if ($this->session->userdata('level') == 'admin' || $this->session->userdata('jab_id') == '34') {
+                if ($peran == 'admin') {
                     if ($page == 'kegiatan') {
                         echo '<li class="active">';
                         echo '<a>';
