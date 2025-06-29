@@ -58,8 +58,6 @@
         <link href="<?= site_url('assets/plugins/select2/css/select2.min.css') ?>" rel="stylesheet" />
     <?php } ?>
 
-
-
     <!-- Bootstrap Material Datetime Picker Css -->
     <link
         href="<?= site_url('assets/plugins/bootstrap-material-datetimepicker/css/bootstrap-material-datetimepicker.css') ?>"

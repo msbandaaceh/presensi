@@ -105,14 +105,20 @@ $(function () {
     }
 
     if (document.getElementById('tblPresensiPribadi')) {
+        var bulan = document.getElementById('bulan').value;
+
+        const tanggal = new Date(bulan + ' 01');
+        const options = { year: 'numeric', month: 'long' };
+        const tanggalIndonesia = tanggal.toLocaleDateString('id-ID', options);
+
         $("#tblPresensiPribadi").DataTable({
             "responsive": true, "lengthChange": true, "autoWidth": false,
             "buttons": ["excel", {
                 extend: 'pdf',
-                messageTop: "Periode : <?= date('F, Y') ?>"
+                messageTop: "Periode : "+tanggalIndonesia
             }, {
                     extend: 'print',
-                    messageTop: "Periode : <?= date('F, Y') ?>"
+                    messageTop: "Periode : "+tanggalIndonesia
                 }, "colvis"]
         }).buttons().container().appendTo('#tblPresensiPribadi_wrapper .col-md-6:eq(0)');
     }

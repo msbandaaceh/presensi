@@ -42,7 +42,7 @@
                                         $konversi_tgl = $bulan->format('F Y');
                                         ?>
                                         <div class="form-line" id="bs_datepicker_container_pribadi">
-                                            <input type="text" name="bulan" class="form-control"
+                                            <input type="text" id="bulan" name="bulan" class="form-control"
                                                 placeholder="Pilih Tanggal" value="<?= $konversi_tgl ?>">
                                         </div>
                                     </div>

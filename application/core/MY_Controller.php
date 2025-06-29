@@ -19,6 +19,7 @@ class MY_Controller extends CI_Controller
         parent::__construct();
         $this->jwt_key = $this->config->item('jwt_key'); // inisialisasi di sini
         $cookie_domain = $this->config->item('cookie_domain');
+        $sso_server = $this->config->item('sso_server');
         $this->session->set_userdata('sso_db', $this->config->item('sso_db'));
 
         $this->load->model('ModelPresensi', 'model');
@@ -34,7 +35,7 @@ class MY_Controller extends CI_Controller
             } else {
                 $redirect_url = current_url();
                 setcookie('redirect_to', urlencode($redirect_url), time() + 300, "/", $cookie_domain);
-                redirect($cookie_domain . 'login');
+                redirect($sso_server . 'login');
             }
         }
 
@@ -103,7 +104,7 @@ class MY_Controller extends CI_Controller
 
     private function cek_token($token)
     {
-        $cookie_domain = $this->config->item('cookie_domain');
+        $cookie_domain = $this->config->item('sso_server');
         $sso_api = $cookie_domain . "api/cek_token?sso_token={$token}";
         $response = file_get_contents($sso_api);
         $data = json_decode($response, true);
@@ -117,7 +118,7 @@ class MY_Controller extends CI_Controller
             ]);
             redirect(current_url());
         } else {
-            redirect($cookie_domain . 'halamanlogin');
+            redirect($cookie_domain . 'login');
         }
     }
 
