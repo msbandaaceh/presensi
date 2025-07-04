@@ -146,7 +146,7 @@
                     </li>
                 <?php } ?>
                 <li>
-                    <a href="<?= $this->config->item('sso_server') ?>">
+                    <a href="<?= site_url('keluar') ?>">
                         <i class="material-icons">exit_to_app</i>
                         <span>Keluar</span></a>
                 </li>

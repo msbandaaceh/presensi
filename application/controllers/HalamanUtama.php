@@ -671,4 +671,10 @@ class HalamanUtama extends MY_Controller
         }
         redirect('/');
     }
+
+    public function keluar()
+    {
+        $this->session->sess_destroy();
+        redirect($this->config->item('sso_server') . '/keluar');
+    }
 }
