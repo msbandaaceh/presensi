@@ -50,11 +50,15 @@
                 </li>
                 <?php
                 $hari = $this->tanggalhelper->convertDayDate(date("Y-m-d"));
-                $jam = strtotime(date('H:i:s'));
+                $jam = strtotime(date('H:i'));
                 $mulaiApelSenin = strtotime($this->session->userdata("mulai_apel_senin"));
                 $selesaiApelSenin = strtotime($this->session->userdata("selesai_apel_senin"));
                 $mulaiApelJumat = strtotime($this->session->userdata("mulai_apel_jumat"));
                 $selesaiApelJumat = strtotime($this->session->userdata("selesai_apel_jumat"));
+                $mulaiIstirahat = strtotime($this->session->userdata("mulai_istirahat"));
+                $selesaiIstirahat = strtotime($this->session->userdata("selesai_istirahat"));
+                $mulaiIstirahatJumat = strtotime($this->session->userdata("mulai_istirahat_jumat"));
+                $selesaiIstirahatJumat = strtotime($this->session->userdata("selesai_istirahat_jumat"));
                 if (strpos($hari, "enin") && ($jam >= $mulaiApelSenin && $jam <= $selesaiApelSenin) || strpos($hari, "umat") && ($jam >= $mulaiApelJumat && $jam <= $selesaiApelJumat)) {
                     ?>
                     <li>
@@ -67,18 +71,59 @@
                     </li>
                 <?php }
 
-                if ($this->session->userdata('agenda_rapat') == 1) {
-                    ?>
-                    <li>
-                        <a type="button" id="rapat" class="btn btn-block btn-lg bg-deep-purple waves-effect">
-                            <p class="align-left">
-                                <i class="material-icons">alarm_on</i>
-                                <span class="col-white">Presensi Rapat</span>
-                            </p>
-                        </a>
-                    </li>
-                <?php } ?>
-                <?php
+                if (strpos($hari, "umat")) {
+                    // Rentang waktu tombol presensi istirahat hari Jumat
+                    if ($jam >= $mulaiIstirahatJumat && $jam <= ($mulaiIstirahatJumat + 600)) {
+                        // 10 menit pertama: tombol mulai istirahat
+                        ?>
+                        <li>
+                            <a type="button" id="istirahat" class="btn btn-block btn-lg bg-blue-grey waves-effect">
+                                <p class="align-left">
+                                    <i class="material-icons">alarm_on</i>
+                                    <span class="col-white">Presensi Istirahat</span>
+                                </p>
+                            </a>
+                        </li>
+                        <?php
+                    } elseif ($jam >= ($selesaiIstirahatJumat - 600) && $jam <= $selesaiIstirahatJumat) {
+                        // 10 menit terakhir: tombol selesai istirahat
+                        ?>
+                        <li>
+                            <a type="button" id="istirahat" class="btn btn-block btn-lg bg-blue-grey waves-effect">
+                                <p class="align-left">
+                                    <i class="material-icons">alarm_off</i>
+                                    <span class="col-white">Presensi Istirahat</span>
+                                </p>
+                            </a>
+                        </li>
+                        <?php
+                    }
+                } else {
+                    if ($jam >= $mulaiIstirahat && $jam <= ($mulaiIstirahat + 600)) {
+                        ?>
+                        <li>
+                            <a type="button" id="istirahat" class="btn btn-block btn-lg bg-blue-grey waves-effect">
+                                <p class="align-left">
+                                    <i class="material-icons">alarm_on</i>
+                                    <span class="col-white">Presensi Istirahat</span>
+                                </p>
+                            </a>
+                        </li>
+                        <?php
+                    } elseif ($jam >= ($selesaiIstirahat - 600) && $jam <= $selesaiIstirahat) {
+                        ?>
+                        <li>
+                            <a type="button" id="istirahat" class="btn btn-block btn-lg bg-blue-grey waves-effect">
+                                <p class="align-left">
+                                    <i class="material-icons">alarm_off</i>
+                                    <span class="col-white">Presensi Istirahat</span>
+                                </p>
+                            </a>
+                        </li>
+                        <?php
+                    }
+                }
+
                 if ($this->session->userdata('agenda_lainnya') == 1) {
                     ?>
                     <li>
@@ -113,7 +158,7 @@
                     }
                     ?>
                     <?php
-                    if (in_array($peran, ['admin', 'petugas'])) {
+                    if (in_array($peran, ['admin', 'operator'])) {
                         ?>
                         <?php
                         if ($page == 'laporan_satker') {
@@ -131,11 +176,7 @@
                             echo '<li>';
                             echo '<a href="' . site_url('laporan_apel') . '">Laporan Presensi Apel</a>';
                         }
-                        ?>
-                        <li>
-                            <a href="<?= site_url('laporan_rapat') ?>">Laporan Rapat</a>
-                        </li>
-                        <?php
+
                         if ($page == 'laporan_kegiatan') {
                             echo '<li class="active">';
                             echo '<a>Laporan Kegiatan Lainnya</a>';
@@ -163,7 +204,7 @@
                     </li>
                 <?php } ?>
                 <li>
-                    <a href="<?= $this->config->item('sso_server') ?>">
+                    <a href="<?= site_url('keluar') ?>">
                         <i class="material-icons">exit_to_app</i>
                         <span>Keluar</span></a>
                 </li>

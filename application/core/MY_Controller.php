@@ -20,30 +20,20 @@ class MY_Controller extends CI_Controller
         $this->jwt_key = $this->config->item('jwt_key'); // inisialisasi di sini
         $cookie_domain = $this->config->item('cookie_domain');
         $sso_server = $this->config->item('sso_server');
-        $this->session->set_userdata('sso_db', $this->config->item('sso_db'));
 
         $this->load->model('ModelPresensi', 'model');
-        if ($this->session->userdata('status_plh') == '1' || $this->session->userdata('status_plt') == '1') {
-            $token = null;
-            $this->session->set_userdata("token_now", $token);
-        }
 
         if (!$this->session->userdata('logged_in')) {
             $token = $this->input->cookie('sso_token');
             if ($token) {
                 $this->cek_token($token);
             } else {
+                $this->session->sess_destroy();
                 $redirect_url = current_url();
                 setcookie('redirect_to', urlencode($redirect_url), time() + 300, "/", $cookie_domain);
                 redirect($sso_server . 'login');
             }
         }
-
-        # Cek data rapat hari ini
-        #$queryRapat = $this->model->get_seleksi('register_rapat', 'tanggal', date('Y-m-d'));
-        #if ($queryRapat->num_rows() > 0) {
-        #    $this->session->set_userdata('agenda_rapat', '1');
-        #}
 
         # Cek kegiatan hari ini
         $queryKegiatan = $this->model->get_seleksi('ref_kegiatan', 'tanggal', date('Y-m-d'));
@@ -52,24 +42,12 @@ class MY_Controller extends CI_Controller
         }
 
         # Cek Data Aplikasi Ini
-        $params = [
-            'tabel' => 'ref_client_app',
-            'kolom_seleksi' => 'id',
-            'seleksi' => '1'
-        ];
-
-        $result = $this->apihelper->get('apiclient/get_data_seleksi', $params);
-
-        if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
-            $user_data = $result['response']['data'][0];
-            $this->session->set_userdata('nama_client_app', $user_data['nama_app']);
-            $this->session->set_userdata('deskripsi_client_app', $user_data['deskripsi']);
-        }
+        $this->model->cek_aplikasi($this->config->item('id_app'));
 
         # Periksa apakah user login sebagai plh/plt atau bukan
-        $token = "plh/plt";
-        if ($this->session->userdata('status_plh') == '0') {
-            if ($this->session->userdata('status_plt') == '0') {
+        $token_presensi = "plh/plt";
+        if (!$this->session->userdata('status_plh')) {
+            if (!$this->session->userdata('status_plt')) {
                 $params = [
                     'tabel' => 'v_users',
                     'kolom_seleksi' => 'userid',
@@ -80,31 +58,40 @@ class MY_Controller extends CI_Controller
 
                 if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
                     $user_data = $result['response']['data'][0];
-                    $token = $user_data['token'];
+                    $token_presensi = $user_data['token'];
+                    $this->session->set_userdata('jabatan', $user_data['jabatan']);
                 }
             }
         }
 
         #Cek peran pegawai
-        if ($this->session->userdata('role') == 'validator_kepeg_satker') {
-            $this->session->set_userdata('peran', 'validator');
-        }
-        $query = $this->model->get_seleksi2('role_presensi', 'userid', $this->session->userdata('userid'), 'hapus', '0');
-        if ($query->num_rows() > 0) {
-            $this->session->set_userdata('peran', $query->row()->role);
+        if (in_array($this->session->userdata('role'), ['super', 'validator_kepeg_satker', 'admin_satker'])) {
+            $this->session->set_userdata('peran', 'admin');
+        } else {
+            $query = $this->model->get_seleksi2('role_presensi', 'userid', $this->session->userdata('userid'), 'hapus', '0');
+            if ($query->num_rows() > 0) {
+                $this->session->set_userdata('peran', $query->row()->role);
+            } else {
+                $this->session->set_userdata('peran', '');
+            }
         }
 
-        $this->session->set_userdata('token_now', $token);
+        $this->session->set_userdata('token_now', $token_presensi);
         $this->session->set_userdata('ip_satker', $this->get_config_value('34'));
         $this->session->set_userdata('mulai_apel_senin', $this->get_config_value('30'));
         $this->session->set_userdata('selesai_apel_senin', $this->get_config_value('31'));
         $this->session->set_userdata('mulai_apel_jumat', $this->get_config_value('32'));
         $this->session->set_userdata('selesai_apel_jumat', $this->get_config_value('33'));
+        $this->session->set_userdata('mulai_istirahat', $this->get_config_value('35'));
+        $this->session->set_userdata('selesai_istirahat', $this->get_config_value('36'));
+        $this->session->set_userdata('mulai_istirahat_jumat', $this->get_config_value('37'));
+        $this->session->set_userdata('selesai_istirahat_jumat', $this->get_config_value('38'));
+        $this->session->set_userdata('logged_in', TRUE);
     }
 
     private function cek_token($token)
     {
-        $cookie_domain = $this->config->item('sso_server');
+        $cookie_domain = $this->session->userdata('sso_server');
         $sso_api = $cookie_domain . "api/cek_token?sso_token={$token}";
         $response = file_get_contents($sso_api);
         $data = json_decode($response, true);

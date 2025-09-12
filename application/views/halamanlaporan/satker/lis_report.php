@@ -116,7 +116,7 @@
                                                 </td>
                                                 <td>
                                                     <?php
-                                                    if ($peran == 'petugas') {
+                                                    if ($peran == 'operator') {
                                                         ?>
                                                         <p><?= $item->fullname; ?></p>
                                                         <?php

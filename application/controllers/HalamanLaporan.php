@@ -21,11 +21,7 @@ class HalamanLaporan extends MY_Controller
         $data['presensi'] = $this->model->all_pres_pengguna($this->session->userdata("userid"));
         $data['page'] = 'laporan_harian';
         $this->session->set_userdata("tanggal", date("Y-m"));
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $data['peran'] = '';
-        }
+        $data['peran'] = $this->session->userdata('peran');
 
         $this->load->view('halamanlaporan/header', $data);
         $this->load->view('halamanlaporan/sidebar');
@@ -58,11 +54,7 @@ class HalamanLaporan extends MY_Controller
 
         $data['presensi'] = $this->model->all_pres_pengguna_bulan($this->session->userdata("userid"), $bulan_fix);
         $data['page'] = 'laporan_harian';
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $data['peran'] = '';
-        }
+        $data['peran'] = $this->session->userdata('peran');
 
         $this->session->set_flashdata('info', '1');
         $this->session->set_flashdata('pesan_sukses', "Data ditemukan");
@@ -86,10 +78,8 @@ class HalamanLaporan extends MY_Controller
         $data['page'] = 'laporan_satker';
         //die(var_dump($data));
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator'])) {
-            $data['peran'] = 'admin';
-        } elseif ($this->session->userdata('peran') == 'petugas') {
-            $data['peran'] = 'petugas';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
@@ -121,8 +111,8 @@ class HalamanLaporan extends MY_Controller
             return;
         }
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
@@ -289,6 +279,7 @@ class HalamanLaporan extends MY_Controller
                 'masuk' => $masuk,
                 'pulang' => $pulang,
                 'ket' => $ket,
+                'created_by' => $this->session->userdata('fullname'),
                 'created_on' => date('Y-m-d H:i:s')
             );
 
@@ -397,8 +388,8 @@ class HalamanLaporan extends MY_Controller
         $data['apel'] = $this->model->register_apel();
         $data['page'] = 'laporan_apel';
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
@@ -418,8 +409,8 @@ class HalamanLaporan extends MY_Controller
         $data['peserta'] = $this->model->get_detail_presensi($tgl);
         $data['page'] = 'laporan_apel';
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
@@ -443,110 +434,6 @@ class HalamanLaporan extends MY_Controller
 
     ##############################################
     #                                            #
-    #       FUNGSI-FUNGSI LAPORAN RAPAT          #
-    #                                            #
-    ##############################################
-
-    public function show_pegawai()
-    {
-        $pegawai = $this->model->list_pengguna_aktif();
-        $nama = array();
-        $nama[''] = "-- Pilih Pegawai Penandatangan --";
-        foreach ($pegawai->result() as $row) {
-            $nama[$row->userid] = $row->fullname;
-        }
-        //die(var_dump($nama));
-
-        $list = form_dropdown('pegawai', $nama, '', 'class="form-control show-tick" id="pegawai"');
-        echo json_encode(
-            array(
-                'st' => 1,
-                'pegawai' => $list,
-            )
-        );
-        return;
-    }
-
-    public function laporan_rapat()
-    {
-        $data['rapat'] = $this->absen->register_rapat();
-
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $this->session->set_flashdata('info', '2');
-            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
-            redirect('laporan');
-        }
-
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporanrapat/sidebar');
-        $this->load->view('halamanabsen/laporanrapat/lis_report', $data);
-        $this->load->view('halamanabsen/footer');
-    }
-
-    public function detail_laporan_rapat()
-    {
-        if ($this->session->flashdata('id')) {
-            $id = $this->session->flashdata('id');
-        } else {
-            $id = $this->input->post('id');
-        }
-        $query = $this->absen->get_seleksi('register_rapat', 'id', $id);
-        $data['id'] = $query->row()->id;
-        $data['tanggal'] = $query->row()->tanggal;
-        $data['agenda'] = $query->row()->agenda;
-        $data['peserta'] = $this->absen->get_detail_presensi_rapat($id);
-
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $this->session->set_flashdata('info', '2');
-            $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
-            redirect('laporan');
-        }
-
-        $this->load->view('halamanabsen/header');
-        $this->load->view('halamanabsen/laporanrapat/sidebar');
-        $this->load->view('halamanabsen/laporanrapat/detail_report', $data);
-        $this->load->view('halamanabsen/footer');
-    }
-
-    public function cetak_detail_laporan_rapat()
-    {
-        $this->form_validation->set_rules('pegawai', 'Pegawai Penandatangan', 'trim|required');
-        $this->form_validation->set_message('required', '%s Belum Dipilih');
-
-        if ($this->form_validation->run() == FALSE) {
-            //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
-            $this->session->set_flashdata('info', '2');
-            $this->session->set_flashdata('pesan_gagal', form_error('pegawai'));
-            $this->session->set_flashdata('id', $this->input->post('id'));
-            redirect('detail_rapat', validation_errors());
-            return;
-        }
-
-        $id = $this->input->post('id');
-        $pegawai = $this->input->post('pegawai');
-        $query = $this->absen->get_seleksi('register_rapat', 'id', $id);
-        $data['agenda'] = $query->row()->agenda;
-        $data['tanggal'] = $query->row()->tanggal;
-        $data['mulai'] = $query->row()->mulai;
-        $data['selesai'] = $query->row()->selesai;
-        $data['tempat'] = $query->row()->tempat;
-        $data['peserta'] = $this->absen->get_detail_presensi_rapat($id);
-
-        # Data Penandatangan
-        $queryTTD = $this->absen->get_seleksi('v_users', 'userid', $pegawai);
-        $data['nama_ttd'] = $queryTTD->row()->fullname;
-        $data['jabatan'] = $queryTTD->row()->jabatan;
-        $data['ttd'] = $queryTTD->row()->ttd;
-
-        $this->load->view('halamanabsen/laporan_rapat', $data);
-    }
-
-    ##############################################
-    #                                            #
     #       FUNGSI-FUNGSI LAPORAN KEGIATAN       #
     #                                            #
     ##############################################
@@ -556,8 +443,8 @@ class HalamanLaporan extends MY_Controller
         $data['page'] = 'laporan_kegiatan';
         $data['kegiatan'] = $this->model->register_kegiatan();
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');
@@ -580,8 +467,8 @@ class HalamanLaporan extends MY_Controller
         $data['peserta'] = $this->model->get_detail_presensi_kegiatan($id);
         $data['page'] = 'laporan_kegiatan';
 
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
+        if ($this->session->userdata('peran')) {
+            $data['peran'] = $this->session->userdata('peran');
         } else {
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Anda tidak memiliki akses');

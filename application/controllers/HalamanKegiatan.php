@@ -7,11 +7,7 @@ class HalamanKegiatan extends MY_Controller
     {
         $data['kegiatan'] = $this->model->all_kegiatan();
         $data['page'] = 'kegiatan';
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $data['peran'] = '';
-        }
+        $data['peran'] = $this->session->userdata('peran');
 
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');

@@ -15,11 +15,7 @@ class HalamanUtama extends MY_Controller
     {
         #die(var_dump($this->session->all_userdata()));
         $data['page'] = 'dashboard';
-        if ($this->session->userdata('super') || in_array($this->session->userdata('peran'), ['validator', 'petugas'])) {
-            $data['peran'] = 'admin';
-        } else {
-            $data['peran'] = '';
-        }
+        $data['peran'] = $this->session->userdata('peran');
 
         $this->load->view('halamanutama/header', $data);
         $this->load->view('halamanutama/sidebar');
@@ -152,30 +148,33 @@ class HalamanUtama extends MY_Controller
         return;
     }
 
-    public function show_rapat()
+    public function show_istirahat()
     {
         $hari = $this->tanggalhelper->convertDayDate(date('Y-m-d', time()));
         $jam = date('H:i:s');
+        $userid = $this->session->userdata("userid");
 
-        # Request API ke AGAM 
-        $query = $this->model->get_list_rapat(date('Y-m-d'));
-        //die(var_dump($query->row()->agenda));
-        $rapat = array();
-        $rapat[''] = "-- Pilih Agenda Rapat --";
-        foreach ($query->result() as $row) {
-            $rapat[$row->id] = $row->agenda;
+        $cekPresensi = $this->model->get_pres_pengguna($userid);
+
+        if ($cekPresensi == null) {
+            echo json_encode(
+                array(
+                    'st' => 2,
+                    'pesan' => "Anda tidak presensi kehadiran, tidak diizinkan presensi istirahat"
+                )
+            );
+        } else {
+            echo json_encode(
+                array(
+                    'st' => 1,
+                    'hari' => $hari,
+                    'jam' => $this->tanggalhelper->konversiJam($jam),
+                    'istirahat_mulai' => $this->tanggalhelper->konversiJam($cekPresensi->istirahat_mulai),
+                    'istirahat_selesai' => $this->tanggalhelper->konversiJam($cekPresensi->istirahat_selesai)
+                )
+            );
         }
 
-        $agenda_rapat = form_dropdown('rapat', $rapat, '', 'class="form-control bg-deep-purple show-tick"  id="rapat"');
-
-        echo json_encode(
-            array(
-                'st' => 1,
-                'hari' => $hari,
-                'jam' => $jam,
-                'rapat' => $agenda_rapat
-            )
-        );
         return;
     }
 
@@ -219,7 +218,7 @@ class HalamanUtama extends MY_Controller
         $pegawai = array();
         if ($users['status_code'] === '200') {
             foreach ($users['response']['data'] as $item) {
-                $pegawai[$item['userid']] = $item['nama_gelar'];
+                $pegawai[$item['userid']] = $item['fullname'];
             }
         }
 
@@ -265,7 +264,7 @@ class HalamanUtama extends MY_Controller
             $data = array(
                 'userid' => $pegawai,
                 'role' => $peran,
-                'modified_by' => $this->session->userdata('username'),
+                'modified_by' => $this->session->userdata('fullname'),
                 'modified_on' => date('Y-m-d H:i:s')
             );
 
@@ -282,7 +281,7 @@ class HalamanUtama extends MY_Controller
             $data = array(
                 'userid' => $pegawai,
                 'role' => $peran,
-                'created_by' => $this->session->userdata('username'),
+                'created_by' => $this->session->userdata('fullname'),
                 'created_on' => date('Y-m-d H:i:s')
             );
             $query = $this->model->simpan_data('role_presensi', $data);
@@ -464,6 +463,7 @@ class HalamanUtama extends MY_Controller
                                 'userid' => $userid,
                                 'masuk' => $jam,
                                 'tgl' => date('Y-m-d'),
+                                'created_by' => $this->session->userdata('fullname'),
                                 'created_on' => date('Y-m-d H:i:s')
                             );
                             $querySimpan = $this->model->simpan_masuk($dataPengguna, $userid);
@@ -473,6 +473,7 @@ class HalamanUtama extends MY_Controller
                             'userid' => $userid,
                             'masuk' => $jam,
                             'tgl' => date('Y-m-d'),
+                            'created_by' => $this->session->userdata('fullname'),
                             'created_on' => date('Y-m-d H:i:s')
                         );
                         $querySimpan = $this->model->simpan_masuk($dataPengguna, $userid);
@@ -483,6 +484,7 @@ class HalamanUtama extends MY_Controller
                         'userid' => $userid,
                         'masuk' => $jam,
                         'tgl' => date('Y-m-d'),
+                        'created_by' => $this->session->userdata('fullname'),
                         'created_on' => date('Y-m-d H:i:s')
                     );
                     $querySimpan = $this->model->simpan_masuk($dataPengguna, $userid);
@@ -494,6 +496,7 @@ class HalamanUtama extends MY_Controller
                         'userid' => $userid,
                         'masuk' => $jam,
                         'tgl' => date('Y-m-d'),
+                        'created_by' => $this->session->userdata('fullname'),
                         'created_on' => date('Y-m-d H:i:s')
                     );
                 } else { // After 12:00 PM
@@ -501,6 +504,7 @@ class HalamanUtama extends MY_Controller
                         'userid' => $userid,
                         'pulang' => $jam,
                         'tgl' => date('Y-m-d'),
+                        'created_by' => $this->session->userdata('fullname'),
                         'created_on' => date('Y-m-d H:i:s')
                     );
                 }
@@ -535,59 +539,100 @@ class HalamanUtama extends MY_Controller
         redirect('/');
     }
 
-    public function simpan_presensi_rapat()
+    public function simpan_istirahat()
     {
-        $this->form_validation->set_rules('rapat', 'Agenda Rapat', 'trim|required');
-        $this->form_validation->set_message(['required' => '%s Belum Dipilih']);
+        $jam = $this->input->post('jam_istirahat');
+        $userid = $this->session->userdata("userid");
+        $fullname = $this->session->userdata('fullname');
+        $hari = $this->tanggalhelper->convertDayDate(date("Y-m-d"));
+        $mulaiIstirahat = strtotime($this->session->userdata("mulai_istirahat"));
+        $selesaiIstirahat = strtotime($this->session->userdata("selesai_istirahat"));
+        $mulaiIstirahatJumat = strtotime($this->session->userdata("mulai_istirahat_jumat"));
+        $selesaiIstirahatJumat = strtotime($this->session->userdata("selesai_istirahat_jumat"));
 
-        if ($this->form_validation->run() == FALSE) {
-            //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
-            $this->session->set_flashdata('info', '3');
-            $this->session->set_flashdata('pesan_gagal', 'Gagal Simpan Presensi Rapat, ' . form_error('rapat'));
-            redirect('/', validation_errors());
-            return;
+        $cekPresensi = $this->model->get_seleksi2('reg_presensi', 'userid', $userid, 'tgl', date('Y-m-d'));
+        if ($cekPresensi->row()->istirahat_mulai) {
+            if (strpos($hari, "umat")) {
+                // Rentang waktu tombol presensi istirahat hari Jumat
+                if (strtotime($jam) >= $mulaiIstirahatJumat && strtotime($jam) <= ($mulaiIstirahatJumat + 600)) {
+                    // 10 menit pertama: tombol mulai istirahat
+                    $this->session->set_flashdata('info', '2');
+                    $this->session->set_flashdata('pesan_gagal', 'Anda sudah presensi Mulai Istirahat, silakan presensi lagi nanti ketika Istirahat akan selesai');
+                    redirect('');
+                } else {
+                    // 10 menit terakhir: tombol selesai istirahat
+                    $dataPengguna = array(
+                        'istirahat_selesai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                }
+            } else {
+                if (strtotime($jam) >= $mulaiIstirahat && strtotime($jam) <= ($mulaiIstirahat + 600)) {
+                    // 10 menit pertama: tombol mulai istirahat
+                    $this->session->set_flashdata('info', '2');
+                    $this->session->set_flashdata('pesan_gagal', 'Anda sudah presensi Mulai Istirahat, silakan presensi lagi nanti ketika Istirahat akan selesai');
+                    redirect('');
+                } else {
+                    // 10 menit terakhir: tombol selesai istirahat
+                    $dataPengguna = array(
+                        'istirahat_selesai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                }
+            }
+
+            $dataPengguna = array(
+                'istirahat_selesai' => $jam,
+                'modified_by' => $fullname,
+                'modified_on' => date('Y-m-d H:i:s')
+            );
+        } else {
+            if (strpos($hari, "umat")) {
+                // Rentang waktu tombol presensi istirahat hari Jumat
+                if (strtotime($jam) >= ($selesaiIstirahatJumat - 600) && strtotime($jam) <= $selesaiIstirahatJumat) {
+                    // 10 menit pertama: tombol mulai istirahat
+                    $dataPengguna = array(
+                        'istirahat_selesai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                } else {
+                    // 10 menit terakhir: tombol selesai istirahat
+                    $dataPengguna = array(
+                        'istirahat_mulai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                }
+            } else {
+                if (strtotime($jam) >= ($selesaiIstirahat - 600) && strtotime($jam) <= $selesaiIstirahat) {
+                    $dataPengguna = array(
+                        'istirahat_selesai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                } else {
+                    $dataPengguna = array(
+                        'istirahat_mulai' => $jam,
+                        'modified_by' => $fullname,
+                        'modified_on' => date('Y-m-d H:i:s')
+                    );
+                }
+            }
         }
 
-        $userid = $this->session->userdata('userid');
-        $idrapat = $this->input->post('rapat');
+        $querySimpan = $this->model->pembaharuan_data('reg_presensi', $dataPengguna, 'id', $cekPresensi->row()->id);
 
-        # Cek Waktu Rapat
-        $queryPresensiRapat = $this->model->get_seleksi('register_rapat', 'id', $idrapat);
-        $mulai = strtotime($queryPresensiRapat->row()->mulai);
-        $selesai = strtotime($queryPresensiRapat->row()->selesai);
-        $jamNow = strtotime(date('H:i:s'));
-
-        if ($jamNow >= $mulai && $jamNow <= $selesai) {
-            $cekPresensi = $this->model->get_presensi_rapat($userid, $idrapat);
-            //die(var_dump($cekPresensi));
-            if ($cekPresensi != 0) { // If already checked in today
-                $querySimpan = 2;
-            } else { // If not checked in today
-                $dataPengguna = array(
-                    'userid' => $userid,
-                    'idrapat' => $idrapat,
-                    'created_on' => date('Y-m-d H:i:s')
-                );
-
-                $querySimpan = $this->model->simpan_rapat($dataPengguna, $userid);
-            }
-
-            if ($querySimpan == 1) {
-                $this->session->set_flashdata('info', '1');
-                $this->session->set_flashdata('pesan_sukses', 'Presensi Berhasil Di Simpan');
-            } elseif ($querySimpan == 2) {
-                $this->session->set_flashdata('info', '2');
-                $this->session->set_flashdata('pesan_gagal', 'Anda Sudah Presensi Untuk Rapat ini !');
-            } else {
-                $this->session->set_flashdata('info', '0');
-                $this->session->set_flashdata('pesan_gagal', 'Presensi Gagal Simpan, Silakan Ulangi Lagi');
-            }
-            redirect('/');
+        if ($querySimpan == 1) {
+            $this->session->set_flashdata('info', '1');
+            $this->session->set_flashdata('pesan_sukses', 'Presensi Istirahat Berhasil Di Simpan');
         } else {
             $this->session->set_flashdata('info', '2');
-            $this->session->set_flashdata('pesan_gagal', 'Anda tidak dapat melakukan Presensi karena berada di luar waktu Rapat yang ditentukan');
-            redirect('/');
+            $this->session->set_flashdata('pesan_gagal', 'Presensi Istirahat Gagal Simpan, Silakan Ulangi Lagi');
         }
+        redirect('');
     }
 
     public function simpan_presensi_apel()
@@ -674,7 +719,8 @@ class HalamanUtama extends MY_Controller
 
     public function keluar()
     {
+        $sso_server = $this->session->userdata('sso_server');
         $this->session->sess_destroy();
-        redirect($this->config->item('sso_server') . '/keluar');
+        redirect($sso_server . '/keluar');
     }
 }

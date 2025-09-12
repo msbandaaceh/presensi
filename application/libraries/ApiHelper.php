@@ -10,7 +10,7 @@ class ApiHelper
     {
         // Ambil instance CI dan URL API dari config
         $this->CI =& get_instance();
-        $this->url_api = rtrim($this->CI->config->item('sso_server'), '/') . '/';
+        $this->url_api = rtrim($this->CI->session->userdata('sso_server'), '/') . '/';
     }
 
     /**

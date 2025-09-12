@@ -1,11 +1,12 @@
 <!-- Main content -->
 <section class="content">
     <div class="container-fluid">
-        <?php if (in_array($this->session->userdata('peran'), ['validator']) || $this->session->userdata('super')) { ?>
+        <?php if ($this->session->userdata('peran') == 'admin') { ?>
             <div class="row">
                 <div class="col">
                     <div class="align-right">
-                        <button class="btn btn-success" onclick="ModalRole('-1')"><i class="material-icons">verified_user</i>
+                        <button class="btn btn-success" onclick="ModalRole('-1')"><i
+                                class="material-icons">verified_user</i>
                             Peran</button>
                     </div>
                 </div>
@@ -127,7 +128,7 @@
         <div class="modal-dialog modal-md">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Daftar Petugas</h5>
+                    <h5 class="modal-title">Daftar Operator Kepegawaian</h5>
                 </div>
                 <form method="POST" id="formSM" action="<?= site_url('simpan_peran') ?>">
                     <input type="hidden" id="id" name="id">
@@ -144,7 +145,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="submit" id="btnSimpanKegiatan" class="btn btn-link waves-effect">Simpan
-                            Petugas</button>
+                            Operator</button>
                         <button type="button" class="btn btn-link waves-effect" data-dismiss="modal">Tutup</button>
                     </div>
                 </form>

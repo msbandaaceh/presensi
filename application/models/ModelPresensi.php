@@ -14,29 +14,41 @@ class ModelPresensi extends CI_Model
 
     private function add_audittrail($action, $title, $table, $descrip)
     {
-        $data = [
-            'action' => $action,
-            'title' => $title,
-            'table' => $table,
-            'description' => $descrip,
-            'username' => $this->session->userdata('username')
+        $params = [
+            'tabel' => 'sys_audittrail',
+            'data' => [
+                'datetime' => date("Y-m-d H:i:s"),
+                'ipaddress' => $this->input->ip_address(),
+                'action' => $action,
+                'title' => $title,
+                'tablename' => $table,
+                'description' => $descrip,
+                'username' => $this->session->userdata('username')
+            ]
         ];
 
-        $this->apihelper->post('api_audittrail', $data);
+        $this->apihelper->post('apiclient/simpan_data', $params);
     }
 
-    private function fetch_description($title, $data)
+    public function cek_aplikasi($id)
     {
-        $descrip = '<br><table style="vertical-align:top" cellspacing="0" cellpadding="1" border="1">';
-        $descrip .= '<tr><th>Nama Kolom</th><th>Nilai</th></tr>';
-        foreach ($data as $key => $value) {
-            $descrip .= '<tr>';
-            $descrip .= '<td>' . $key . '</td>';
-            $descrip .= '<td>' . $value . '</td>';
-            $descrip .= '</tr>';
+        $params = [
+            'tabel' => 'ref_client_app',
+            'kolom_seleksi' => 'id',
+            'seleksi' => $id
+        ];
+
+        $result = $this->apihelper->get('apiclient/get_data_seleksi', $params);
+
+        if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
+            $user_data = $result['response']['data'][0];
+            $this->session->set_userdata(
+                [
+                    'nama_client_app' => $user_data['nama_app'],
+                    'deskripsi_client_app' => $user_data['deskripsi']
+                ]
+            );
         }
-        $descrip .= '</table>';
-        return $descrip;
     }
 
     public function all_pres_pengguna($id)
@@ -438,6 +450,17 @@ class ModelPresensi extends CI_Model
         return $query->result();
     }
 
+    public function get_pres_pengguna($id)
+    {
+        try {
+            $this->db->where('tgl', date('Y-m-d'));
+            $this->db->where('userid', $id);
+            return $this->db->get('register_presensi')->row();
+        } catch (Exception $e) {
+            return $e;
+        }
+    }
+
     #################################
     #    SIMPAN PRESENSI (START)    #
     #################################
@@ -485,20 +508,6 @@ class ModelPresensi extends CI_Model
         }
     }
 
-    public function simpan_rapat($data, $id)
-    {
-        $table = 'register_presensi_rapat';
-        try {
-            $this->db->insert($table, $data);
-            $title = "Update Presensi Rapat Pegawai [User id=<b>" . $id . "</b>]<br />Update rapat <b>register_presensi_rapat</b>]";
-            $descrip = null;
-            $this->add_audittrail("INSERT", $title, $table, $descrip);
-            return 1;
-        } catch (Exception $e) {
-            return $e;
-        }
-    }
-
     public function simpan_kegiatan($data, $id)
     {
         $table = 'register_presensi_lainnya';
@@ -524,7 +533,7 @@ class ModelPresensi extends CI_Model
             $this->db->insert($table, $data);
             $title = "Simpan Edit Presensi Pegawai <br />Simpan Edit Presensi <b>register_presensi</b>]";
             $descrip = null;
-            $this->add_audittrail("UPDATE", $title, $table, $descrip);
+            $this->add_audittrail("INSERT", $title, $table, $descrip);
             return 1;
         } catch (Exception $e) {
             return $e;
@@ -560,6 +569,9 @@ class ModelPresensi extends CI_Model
     {
         try {
             $this->db->insert($tabel, $data);
+            $title = "Tambah Data <br />Insert tabel <b>" . $tabel;
+            $descrip = null;
+            $this->add_audittrail("INSERT", $title, $tabel, $descrip);
             return 1;
         } catch (Exception $e) {
             return 0;

@@ -67,18 +67,6 @@
                     </li>
                 <?php }
 
-                if ($this->session->userdata('agenda_rapat') == 1) {
-                    ?>
-                    <li>
-                        <a type="button" id="rapat" class="btn btn-block btn-lg bg-deep-purple waves-effect">
-                            <p class="align-left">
-                                <i class="material-icons">alarm_on</i>
-                                <span class="col-white">Presensi Rapat</span>
-                            </p>
-                        </a>
-                    </li>
-                <?php } ?>
-                <?php
                 if ($this->session->userdata('agenda_lainnya') == 1) {
                     ?>
                     <li>
@@ -107,16 +95,13 @@
                         <a href="<?= site_url('laporan') ?>">Laporan Harian</a>
                     </li>
                     <?php
-                    if ($peran == 'admin') {
+                    if (in_array($peran, ['admin', 'operator'])) {
                         ?>
                         <li>
                             <a href="<?= site_url('laporan_satker') ?>">Laporan Satuan Kerja</a>
                         </li>
                         <li>
                             <a href="<?= site_url('laporan_apel') ?>">Laporan Apel</a>
-                        </li>
-                        <li>
-                            <a href="<?= site_url('laporan_rapat') ?>">Laporan Rapat</a>
                         </li>
                         <?php
                         if ($page == 'laporan_kegiatan') {
@@ -132,7 +117,7 @@
                 </ul>
                 </li>
                 <?php
-                if ($peran == 'admin') {
+                if (in_array($peran, ['admin', 'operator'])) {
                     if ($page == 'kegiatan') {
                         echo '<li class="active">';
                         echo '<a>';
