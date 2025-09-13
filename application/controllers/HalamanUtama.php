@@ -719,7 +719,7 @@ class HalamanUtama extends MY_Controller
 
     public function keluar()
     {
-        $sso_server = $this->session->userdata('sso_server');
+        $sso_server = $this->config->item('sso_server');
         $this->session->sess_destroy();
         redirect($sso_server . '/keluar');
     }
