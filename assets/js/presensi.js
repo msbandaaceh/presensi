@@ -414,7 +414,7 @@ function simpanApel() {
         closeOnCancel: false
     }, function (isConfirm) {
         if (isConfirm) {
-            $.post('pres_apel_js', function (response) {
+            $.post('simpan_presensi_apel', function (response) {
                 var json = jQuery.parseJSON(response);
                 if (json.st == 1) {
                     swal({
