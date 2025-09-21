@@ -91,7 +91,7 @@ class MY_Controller extends CI_Controller
 
     private function cek_token($token)
     {
-        $cookie_domain = $this->session->userdata('sso_server');
+        $cookie_domain = $this->config->item('sso_server');
         $sso_api = $cookie_domain . "api/cek_token?sso_token={$token}";
         $response = file_get_contents($sso_api);
         $data = json_decode($response, true);

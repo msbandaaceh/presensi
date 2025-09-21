@@ -213,7 +213,7 @@ if ($this->session->flashdata('info')) {
     };
 </script>
 
-<script src="<?= site_url('assets/js/presensi.js') ?>"></script>
+<script src="<?= site_url('assets/js/presensi.js?v=1.0.2') ?>"></script>
 <!-- Place this tag in your head or just before your close body tag. -->
 <script async defer src="https://buttons.github.io/buttons.js"></script>
 

@@ -28,6 +28,7 @@ $route['simpan_presensi_kegiatan'] = 'HalamanUtama/simpan_presensi_kegiatan';
 $route['simpan_kegiatan'] = 'HalamanKegiatan/simpan_kegiatan';
 $route['simpan_edit'] = 'HalamanLaporan/simpan_edit_presensi';
 $route['simpan_peran'] = 'HalamanUtama/simpan_peran';
+$route['simpan_istirahat'] = 'HalamanUtama/simpan_istirahat';
 
 $route['hapus_kegiatan'] = 'HalamanKegiatan/hapus_kegiatan';
 
@@ -40,6 +41,7 @@ $route['show_kegiatan'] = 'HalamanUtama/show_kegiatan';
 $route['show_data_kegiatan'] = 'HalamanKegiatan/show';
 $route['show_list_pegawai'] = 'HalamanLaporan/show_all_pegawai';
 $route['show_role'] = 'HalamanUtama/show_role';
+$route['show_istirahat'] = 'HalamanUtama/show_istirahat';
 
 $route['edit_presensi'] = 'HalamanLaporan/edit';
 $route['edit_peran'] = 'HalamanUtama/edit_peran';

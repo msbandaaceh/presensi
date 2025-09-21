@@ -154,7 +154,7 @@ class HalamanUtama extends MY_Controller
         $jam = date('H:i:s');
         $userid = $this->session->userdata("userid");
 
-        $cekPresensi = $this->model->get_pres_pengguna($userid);
+        $cekPresensi = $this->model->get_presensi_pengguna_hari_ini($userid);
 
         if ($cekPresensi == null) {
             echo json_encode(
@@ -550,7 +550,7 @@ class HalamanUtama extends MY_Controller
         $mulaiIstirahatJumat = strtotime($this->session->userdata("mulai_istirahat_jumat"));
         $selesaiIstirahatJumat = strtotime($this->session->userdata("selesai_istirahat_jumat"));
 
-        $cekPresensi = $this->model->get_seleksi2('reg_presensi', 'userid', $userid, 'tgl', date('Y-m-d'));
+        $cekPresensi = $this->model->get_seleksi2('register_presensi', 'userid', $userid, 'tgl', date('Y-m-d'));
         if ($cekPresensi->row()->istirahat_mulai) {
             if (strpos($hari, "umat")) {
                 // Rentang waktu tombol presensi istirahat hari Jumat
@@ -623,7 +623,7 @@ class HalamanUtama extends MY_Controller
             }
         }
 
-        $querySimpan = $this->model->pembaharuan_data('reg_presensi', $dataPengguna, 'id', $cekPresensi->row()->id);
+        $querySimpan = $this->model->pembaharuan_data('register_presensi', $dataPengguna, 'id', $cekPresensi->row()->id);
 
         if ($querySimpan == 1) {
             $this->session->set_flashdata('info', '1');
@@ -632,7 +632,7 @@ class HalamanUtama extends MY_Controller
             $this->session->set_flashdata('info', '2');
             $this->session->set_flashdata('pesan_gagal', 'Presensi Istirahat Gagal Simpan, Silakan Ulangi Lagi');
         }
-        redirect('');
+        redirect('/');
     }
 
     public function simpan_presensi_apel()

@@ -23,6 +23,25 @@ $(function () {
         }
     });
 
+    $('#istirahat').on('click', async function () {
+
+        // Ambil IP koneksi (ipKonek) dari API
+        const ipKonek = await getIpKonek();
+        if (ipLokal != ipKonek) {
+            salahJaringan();
+        } else if (mobile != '1') {
+            salahModePerangkat();
+        } else if (token == 'plh/plt') {
+            notifPlh();
+        } else if (token == '') {
+            simpanPerangkat();
+        } else if (token != token_cookies) {
+            salahPerangkat();
+        } else {
+            BukaModalIstirahat();
+        }
+    });
+
     $('#apel').on('click', async function () {
         // Ambil IP koneksi (ipKonek) dari API
         const ipKonek = await getIpKonek();
@@ -39,24 +58,6 @@ $(function () {
         } else {
             //console.log("1");
             simpanApel();
-        }
-    });
-
-    $('#rapat').on('click', async function () {
-        // Ambil IP koneksi (ipKonek) dari API
-        const ipKonek = await getIpKonek();
-        if (ipLokal != ipKonek) {
-            salahJaringan();
-        } else if (mobile != '1') {
-            salahModePerangkat();
-        } else if (token == 'plh/plt') {
-            notifPlh();
-        } else if (token == '') {
-            simpanPerangkat();
-        } else if (token != token_cookies) {
-            salahPerangkat();
-        } else {
-            presensiRapat();
         }
     });
 
@@ -566,6 +567,50 @@ function BukaModal() {
             $('#table_pegawai').DataTable().ajax.reload();
             $("#modal-content").show();
             swal.close();
+        }
+    });
+}
+
+function BukaModalIstirahat() {
+    swal({
+        title: "Memuat...",
+        text: "Silakan tunggu sebentar.",
+        imageUrl: "assets/images/loader.gif",
+        imageSize: "200x200", // Ukuran gambar: width x height (dalam piksel)
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
+    $("#modal-content").hide();
+    $("#btnSimpan").attr("disabled", true);
+    $.post('show_istirahat', function (response) {
+        var json = jQuery.parseJSON(response);
+        if (json.st == 1) {
+            $("#istirahat-modal").modal('show');
+            $("#jam_").html('');
+            $("#hari_").html('');
+            $("#jam_istirahat").val('');
+
+            $("#jam_").append(json.jam);
+            $("#hari_").append(json.hari);
+            $("#jam_istirahat").val(json.jam);
+            if (json.istirahat_mulai) {
+                $("#jam_istirahat_mulai").html('');
+                $("#jam_istirahat_mulai").append(json.istirahat_mulai);
+                $('#jam_istirahat_mulai').toggleClass('bg-red bg-blue');
+            }
+            if (json.istirahat_selesai) {
+                $("#jam_istirahat_selesai").html('');
+                $("#jam_istirahat_selesai").append(json.istirahat_selesai);
+                $('#jam_istirahat_selesai').toggleClass('bg-red bg-blue');
+                $('#btnSimpanIstirahat').addClass('hidden');
+            }
+
+            swal.close();
+            $("#modal-content").show();
+            $("#btnSimpan").attr("disabled", false);
+        } else {
+            peringatan(json.pesan);
         }
     });
 }

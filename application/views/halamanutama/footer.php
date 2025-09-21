@@ -48,37 +48,46 @@
     <!-- /.modal-dialog -->
 </div>
 
-<div class="modal fade" id="presensi-rapat" data-backdrop="static">
+<div class="modal fade" id="istirahat-modal" data-backdrop="static">
     <div class="modal-dialog modal-md">
-        <div class="modal-content modal-col-deep-purple">
-            <form method="POST" id="formSM" action="<?= site_url('simpan_presensi_rapat') ?>">
+        <div class="modal-content modal-col-blue-grey">
+            <form method="POST" id="formSM" action="<?php base_url() ?>simpan_istirahat">
                 <div class="modal-header">
-                    <h5 class="modal-title">Presensi Rapat Online</h5>
+                    <h5 class="modal-title">Presensi Istirahat</h5>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
                         <div class="row g-2">
                             <div class="col" style="display: grid; place-items: center;">
-                                <h5 class="form-label" id="hariRapat"></h5>
+                                <label class="form-label" id="hari_"></label>
                             </div>
                         </div>
                         <div class="row g-2">
                             <div class="col" style="display: grid; place-items: center;">
-                                <h5 class="form-label">Saat ini pukul <label class="form-label" id="jamRapat"></label>
-                                </h5>
+                                <label for="nameBackdrop" class="form-label">Saat ini pukul <label class="form-label"
+                                        id="jam_"></label></label>
+                                <input type="hidden" name="jam_istirahat" id="jam_istirahat" class="form-control" />
                             </div>
                         </div>
+
                         <div class="row g-2">
-                            <div class="col" style="display: grid">
-                                <h5 class="form-label">Pilih Agenda Rapat : </h5>
-                                <div id="rapat_">
-                                </div>
+                            <div class="col" style="display: grid; place-items: center;">
+                                <label for="nameBackdrop" class="form-label">Presensi Mulai Istirahat : <span
+                                        class="badge bg-red" id="jam_istirahat_mulai">Belum Presensi</span></label>
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col" style="display: grid; place-items: center;">
+                                <label for="nameBackdrop" class="form-label">Presensi Selesai Istirahat : <span
+                                        class="badge bg-red" id="jam_istirahat_selesai">Belum Presensi</span></label>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" id="btnSimpanRapat" class="btn btn-link waves-effect">Simpan Presensi</button>
+                    <button type="submit" id="btnSimpanIstirahat" class="btn btn-link waves-effect">Simpan Presensi
+                        Istirahat</button>
                     <button type="button" class="btn btn-link waves-effect" data-dismiss="modal">Tutup</button>
                 </div>
             </form>
@@ -215,7 +224,7 @@ if ($this->session->flashdata('info')) {
     };
 </script>
 
-<script src="<?= site_url('assets/js/presensi.js?v=1.0.1') ?>"></script>
+<script src="<?= site_url('assets/js/presensi.js?v=1.0.2') ?>"></script>
 <!-- Place this tag in your head or just before your close body tag. -->
 <script async defer src="https://buttons.github.io/buttons.js"></script>
 
