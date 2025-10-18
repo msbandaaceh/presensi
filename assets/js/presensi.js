@@ -1133,8 +1133,8 @@ function BukaModalLokasiMPP() {
 
                         // Gambar polygon di Leaflet (ingat Leaflet pakai [lat, lng])
                         polygonLayer = L.polygon(data.koordinat.map(p => [p.lat, p.lng]), {
-                            color: "red",
-                            fillColor: "#f03",
+                            color: "green",
+                            fillColor: "rgba(89, 225, 119, 1)",
                             fillOpacity: 0.4
                         }).addTo(map);
 
@@ -1165,4 +1165,20 @@ function BukaModalLokasiMPP() {
             $("#modal-content").show();
         }
     });
+}
+
+function checkInsidePolygon(latlng) {
+    let point = turf.point([latlng.lng, latlng.lat]);
+    let polygon = turf.polygon([polygonCoords]);
+    $('#ket_map').html('');
+
+    if (turf.booleanPointInPolygon(point, polygon)) {
+        $('#ket_map').append('<p class="text-success">Anda Diperbolehkan Presensi</p>');
+        $('#btnSimpan').removeClass('hidden');
+        $("#btnSimpan").attr("disabled", false); // Aktifkan tombol
+    } else {
+        $('#ket_map').append('<p class="text-danger">Anda Tidak Diperbolehkan presensi karena diluar lokasi presensi</p>');
+        $('#btnSimpan').addClass('hidden');
+        $("#btnSimpan").attr("disabled", true); // Nonaktifkan tombol
+    }
 }
