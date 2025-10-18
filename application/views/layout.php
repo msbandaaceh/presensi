@@ -319,8 +319,10 @@
                             </div>
 
                             <div class="row g-2 mb-3">
-                                <div id="map" style="height:250px;"></div><br />
-                                <div id="ket_map" class="text-center"></div><br />
+                                <div class="col" style="display: grid; place-items: center;">
+                                    <div id="map" style="height:250px;"></div><br />
+                                    <div id="ket_map" class="text-center"></div><br />
+                                </div>
                             </div>
 
                             <div class="row g-2">
