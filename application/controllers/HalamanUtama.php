@@ -17,10 +17,62 @@ class HalamanUtama extends MY_Controller
         $data['page'] = 'dashboard';
         $data['peran'] = $this->session->userdata('peran');
 
-        $this->load->view('halamanutama/header', $data);
-        $this->load->view('halamanutama/sidebar');
-        $this->load->view('halamanutama/dashboard');
-        $this->load->view('halamanutama/footer');
+        $this->load->view('layout', $data);
+    }
+
+    public function page($halaman)
+    {
+        // Amanin nama file view agar tidak sembarang file bisa diload
+        $allowed = [
+            'dashboard',
+            'laporan_harian',
+            'laporan_satker',
+            'laporan_apel',
+            'laporan_kegiatan',
+            'kegiatan'
+        ];
+
+        if (in_array($halaman, $allowed)) {
+            $data['peran'] = $this->session->userdata('peran');
+            $data['page'] = $halaman;
+
+            if ($halaman == 'laporan_harian') {
+                $data['presensi'] = $this->model->all_pres_pengguna($this->session->userdata("userid"));
+                $this->session->set_userdata("tanggal", date("Y-m"));
+            } elseif ($halaman == 'laporan_satker') {
+                $data['hakim'] = $this->model->pres_hakim_now();
+                $data['cakim'] = $this->model->pres_cakim_now();
+                $data['pns'] = $this->model->pres_pns_now();
+                $data['pppk'] = $this->model->pres_pppk_now();
+                $data['honor'] = $this->model->pres_honor_now();
+                $this->session->set_userdata("tanggal", date("Y-m-d"));
+            } elseif ($halaman == 'laporan_apel') {
+                $data['apel'] = $this->model->register_apel();
+            } elseif ($halaman == 'laporan_kegiatan') {
+                $data['kegiatan'] = $this->model->register_kegiatan();
+            } elseif ($halaman == 'kegiatan') {
+                $data['kegiatan'] = $this->model->all_kegiatan();
+            }
+
+            $this->load->view($halaman, $data);
+        } else {
+            show_404();
+        }
+    }
+
+    public function cek_token_sso()
+    {
+        $token = $this->input->cookie('sso_token');
+        $cookie_domain = $this->config->item('sso_server');
+        $sso_api = $cookie_domain . "api/cek_token?sso_token={$token}";
+        $response = file_get_contents($sso_api);
+        $data = json_decode($response, true);
+
+        if ($data['status'] == 'success') {
+            echo json_encode(['valid' => true]);
+        } else {
+            echo json_encode(['valid' => false, 'message' => 'Token Expired, Silakan login ulang', 'url' => $cookie_domain . 'login']);
+        }
     }
 
     # MENAMPILKAN ISI MODAL PRESENSI MASUK DAN PULANG
@@ -722,5 +774,36 @@ class HalamanUtama extends MY_Controller
         $sso_server = $this->config->item('sso_server');
         $this->session->sess_destroy();
         redirect($sso_server . '/keluar');
+    }
+
+    public function get_status_pegawai()
+    {
+        $params = [
+            "tabel" => "ref_mpp",
+            "kolom_seleksi" => "pegawai_id",
+            "seleksi" => $this->session->userdata('pegawai_id')
+        ];
+
+        $users = $this->apihelper->get('apiclient/get_data_seleksi', $params);
+        if ($users['status_code'] == '200' && $users['response']['status'] == 'success') {
+            $data['status'] = '1';
+        } else {
+            $data['status'] = '2';
+        }
+
+        echo json_encode($data);
+    }
+
+    public function get_lokasi()
+    {
+        $result = $this->apihelper->get('apiclient/get_lokasi_mpp');
+        if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
+            $lokasi = $result['response']['data'][0];
+            if ($lokasi) {
+                $lokasi['koordinat'] = json_decode($lokasi['polygon_json']); // decode dulu biar rapi
+            }
+        }
+
+        echo json_encode($lokasi);
     }
 }

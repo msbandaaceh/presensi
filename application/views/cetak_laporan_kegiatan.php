@@ -45,8 +45,7 @@
                             <thead>
                                 <tr>
                                     <div class="body">
-                                        <img src="<?= $this->session->userdata('kop_satker') ?>"
-                                            class="img-responsive">
+                                        <img src="<?= $this->session->userdata('kop_satker') ?>" class="img-responsive">
                                     </div>
                                 </tr>
                                 <tr>

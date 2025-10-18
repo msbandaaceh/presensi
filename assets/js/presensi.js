@@ -5,12 +5,10 @@ $(function () {
     var token_cookies = config.tokenCookies;
 
     $('#tambah').on('click', async function () {
-
+        cekToken();
         // Ambil IP koneksi (ipKonek) dari API
         const ipKonek = await getIpKonek();
-        if (ipLokal != ipKonek) {
-            salahJaringan();
-        } else if (mobile != '1') {
+        if (mobile != '1') {
             salahModePerangkat();
         } else if (token == 'plh/plt') {
             notifPlh();
@@ -18,13 +16,22 @@ $(function () {
             simpanPerangkat();
         } else if (token != token_cookies) {
             salahPerangkat();
+        } else if (ipLokal != ipKonek) {
+            $.getJSON('get_status_pegawai', function (data) {
+                //console.log("Data dari server:", data);
+                if (data.status == '1') {
+                    BukaModalLokasiMPP();
+                } else {
+                    salahJaringan();
+                }
+            });
         } else {
             BukaModal();
         }
     });
 
     $('#istirahat').on('click', async function () {
-
+        cekToken();
         // Ambil IP koneksi (ipKonek) dari API
         const ipKonek = await getIpKonek();
         if (ipLokal != ipKonek) {
@@ -43,6 +50,7 @@ $(function () {
     });
 
     $('#apel').on('click', async function () {
+        cekToken();
         // Ambil IP koneksi (ipKonek) dari API
         const ipKonek = await getIpKonek();
         if (ipLokal != ipKonek) {
@@ -62,6 +70,7 @@ $(function () {
     });
 
     $('#acara').on('click', async function () {
+        cekToken();
         // Ambil IP koneksi (ipKonek) dari API
         const ipKonek = await getIpKonek();
         if (ipLokal != ipKonek) {
@@ -79,92 +88,9 @@ $(function () {
         }
     });
 
-    $('#lapPegawai').on('click', function () {
-        loadPegawai();
-    });
-
     $('#lapDetailApel').on('click', function () {
         loadPegawai();
     });
-
-    if (document.getElementById('tblKegiatan')) {
-        $("#tblKegiatan").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false
-        }).buttons().container().appendTo('#tblKegiatan_wrapper .col-md-6:eq(0)');
-    }
-
-    if (document.getElementById('tabel_apel')) {
-        $("#tabel_apel").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false
-        }).buttons().container().appendTo('#tblKegiatan_wrapper .col-md-6:eq(0)');
-    }
-
-    if (document.getElementById('tblRapat')) {
-        $("#tblRapat").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false
-        }).buttons().container().appendTo('#tblRapat_wrapper .col-md-6:eq(0)');
-    }
-
-    if (document.getElementById('tblPresensiPribadi')) {
-        var bulan = document.getElementById('bulan').value;
-
-        const tanggal = new Date(bulan + ' 01');
-        const options = { year: 'numeric', month: 'long' };
-        const tanggalIndonesia = tanggal.toLocaleDateString('id-ID', options);
-
-        $("#tblPresensiPribadi").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": ["excel", {
-                extend: 'pdf',
-                messageTop: "Periode : "+tanggalIndonesia
-            }, {
-                    extend: 'print',
-                    messageTop: "Periode : "+tanggalIndonesia
-                }, "colvis"]
-        }).buttons().container().appendTo('#tblPresensiPribadi_wrapper .col-md-6:eq(0)');
-    }
-
-    if (document.getElementById('bs_datepicker_container')) {
-        $('#bs_datepicker_container input').datepicker({
-            format: "dd MM yyyy",
-            autoclose: true,
-            container: '#bs_datepicker_container'
-        });
-    }
-
-    if (document.getElementById('bs_datepicker_container1')) {
-        $('#bs_datepicker_container1 input').datepicker({
-            format: "yyyy-mm-dd",
-            autoclose: true,
-            container: '#bs_datepicker_container1'
-        });
-    }
-
-    //Bootstrap datepicker plugin
-    if (document.getElementById('bs_datepicker_container_pribadi')) {
-        $('#bs_datepicker_container_pribadi input').datepicker({
-            format: "MM yyyy",
-            minViewMode: 1,
-            autoclose: true,
-            container: '#bs_datepicker_container_pribadi'
-        });
-    }
-
-    if (document.getElementsByClassName('timepicker')) {
-        $('.timepicker').bootstrapMaterialDatePicker({
-            format: 'HH:mm',
-            clearButton: true,
-            date: false
-        });
-    }
-
-    if (document.getElementById('tambahKegiatan')) {
-        $('#tambahKegiatan').on('click', function () {
-            var id = $(this).data('id');
-            //console.log(id);
-            loadKegiatan(id);
-        });
-    }
 
     if (document.getElementsByClassName('presensi-lainnya')) {
         $('.presensi-lainnya').on('click', function (e) {
@@ -174,192 +100,252 @@ $(function () {
         });
     }
 
-    /*##################################################*/
-    /* UNTUK MENCETAK PADA LAPORAN SATUAN KERJA (START) */
-    /*##################################################*/
+    $(document).off('submit', '#formEditPresensi').on('submit', '#formEditPresensi', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
 
-    var hakim = '1';
-    var cakim = '4';
-    var asn = '2';
-    var honor = '3';
-    var pppk = '6';
+        Swal.fire({
+            title: 'Menyimpan...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
 
-    var tanggal = document.getElementById('bulanSatker');
-    if (tanggal) {
-        var tgl = document.getElementById('bulanSatker').value;
-    }
+        $.ajax({
+            url: 'simpan_edit',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == '1') {
+                    $('body').removeClass('modal-open');
+                    $('.modal-backdrop').remove();
+                    loadPage('laporan_satker');
+                }
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat menyimpan data.', 4);
+            }
+        });
+    });
 
-    if (document.getElementById('tabel_hakim')) {
-        $("#tabel_hakim").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": [{
-                text: 'Cetak Presensi Masuk',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_masuk" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + hakim + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }, {
-                text: 'Cetak Presensi Pulang',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_pulang" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + hakim + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }]
-        }).buttons().container().appendTo('#tabel_hakim_wrapper .col-md-6:eq(0) ');
-    }
+    $(document).off('submit', '#formLaporanHarianBulanan').on('submit', '#formLaporanHarianBulanan', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
 
-    if (document.getElementById('tabel_cakim')) {
-        $("#tabel_cakim").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": [{
-                text: 'Cetak Presensi Masuk',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_masuk" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + cakim + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }, {
-                text: 'Cetak Presensi Pulang',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_pulang" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + cakim + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }]
-        }).buttons().container().appendTo('#tabel_cakim_wrapper .col-md-6:eq(0)');
-    }
+        Swal.fire({
+            title: 'Mencari data...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
 
-    if (document.getElementById('tabel_pns')) {
-        $("#tabel_pns").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": [{
-                text: 'Cetak Presensi Masuk',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_masuk" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + asn + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
+        $.ajax({
+            url: 'laporan_bulan',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == 1) {
+                    $('#main').html(res.html);
                 }
-            }, {
-                text: 'Cetak Presensi Pulang',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_pulang" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + asn + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }]
-        }).buttons().container().appendTo('#tabel_pns_wrapper .col-md-6:eq(0)');
-    }
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat mencari data.', 4);
+            }
+        });
+    });
 
-    if (document.getElementById('tabel_pppk')) {
-        $("#tabel_pppk").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": [{
-                text: 'Cetak Presensi Masuk',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_masuk" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + pppk + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }, {
-                text: 'Cetak Presensi Pulang',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_pulang" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + pppk + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
-                }
-            }]
-        }).buttons().container().appendTo('#tabel_pppk_wrapper .col-md-6:eq(0)');
-    }
+    $(document).off('submit', '#formLaporanHarianSatkerBulanan').on('submit', '#formLaporanHarianSatkerBulanan', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
 
-    if (document.getElementById('tabel_honor')) {
-        $("#tabel_honor").DataTable({
-            "responsive": true, "lengthChange": true, "autoWidth": false,
-            "buttons": [{
-                text: 'Cetak Presensi Masuk',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_masuk" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + honor + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
+        Swal.fire({
+            title: 'Mencari data...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
+
+        $.ajax({
+            url: 'laporan_satker_bulan',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == 1) {
+                    $('#main').html(res.html);
                 }
-            }, {
-                text: 'Cetak Presensi Pulang',
-                action: function (e, dt, node, config) {
-                    // Membuat formulir tersembunyi
-                    var form = $('<form action="cetak_pulang" target="blank" method="post">' +
-                        '<input type="hidden" name="jenis" value="' + honor + '">' +
-                        '<input type="hidden" name="tgl" value="' + tgl + '">' +
-                        '</form>');
-                    // Menambahkan formulir ke dalam dokumen
-                    $('body').append(form);
-                    // Mengirimkan formulir
-                    form.submit();
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat mencari data.', 4);
+            }
+        });
+    });
+
+    $(document).off('submit', '#formKegiatan').on('submit', '#formKegiatan', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
+
+        Swal.fire({
+            title: 'Menyimpan data...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
+
+        $.ajax({
+            url: 'simpan_kegiatan',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == 1) {
+                    loadPage('kegiatan');
                 }
-            }]
-        }).buttons().container().appendTo('#tabel_honor_wrapper .col-md-6:eq(0)');
-    }
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat mencari data.', 4);
+            }
+        });
+    });
 
+    $(document).off('submit', '#formDetailPresensiApel').on('submit', '#formDetailPresensiApel', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
 
-    /*################################################*/
-    /* UNTUK MENCETAK PADA LAPORAN SATUAN KERJA (END) */
-    /*################################################*/
+        Swal.fire({
+            title: 'Mencari data...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
 
+        $.ajax({
+            url: 'laporan_apel_detail',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == 1) {
+                    $('#main').html(res.html);
+                }
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat mencari data.', 4);
+            }
+        });
+    });
+
+    $(document).off('submit', '#formDetailPresensiKegiatan').on('submit', '#formDetailPresensiKegiatan', function (e) {
+        e.preventDefault();
+        let form = this;
+        let formData = new FormData(form);
+
+        Swal.fire({
+            title: 'Mencari data...',
+            text: 'Silakan tunggu sebentar.',
+            imageUrl: 'assets/images/loader.gif',
+            imageWidth: 200,
+            showConfirmButton: false,
+            allowOutsideClick: false
+        });
+
+        $.ajax({
+            url: 'laporan_detail_kegiatan',
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            dataType: 'json',
+            success: function (res) {
+                Swal.close();
+                notifikasi(res.message, res.success);
+                if (res.success == 1) {
+                    $('#main').html(res.html);
+                }
+            },
+            error: function () {
+                Swal.close();
+                notifikasi('Terjadi kesalahan saat mencari data.', 4);
+            }
+        });
+    });
 });
+
+function loadPage(page) {
+    cekToken();
+    $('#main').html(`
+        <div class="text-center p-4"><div class="preloader">
+            <div class="spinner-layer pl-red">
+                <div class="circle-clipper left">
+                    <div class="circle"></div>
+                </div>
+                <div class="circle-clipper right">
+                    <div class="circle"></div>
+                </div>
+            </div>
+        </div> Memuat halaman, Mohon tunggu sebentar ...</div>`);
+    $.get("halamanutama/page/" + page, function (data) {
+        $('#main').html(data);
+    }).fail(function () {
+        $('#main').html('<div class="text-danger">Halaman tidak ditemukan.</div>');
+    });
+}
+
+function cekToken() {
+    $.ajax({
+        url: 'cek_token',
+        type: 'POST',
+        dataType: 'json',
+        success: function (res) {
+            if (!res.valid) {
+                alert(res.message);
+                window.location.href = res.url;
+            }
+        }
+    });
+}
 
 function getIpKonek() {
     return fetch('https://api.ipify.org?format=json')
@@ -372,118 +358,110 @@ function getIpKonek() {
 }
 
 function salahJaringan() {
-    swal({
+    Swal.fire({
         icon: "error",
-        title: "<h4>Oops...<h4>",
-        type: "warning",
-        text: "<h5>Anda Mengakses Aplikasi Menggunakan Jaringan Lain</br></br>Silakan Presensi Menggunakan Jaringan Wifi Kantor</h5>",
-        html: true
+        title: "Oops...",
+        html: "<h5>Anda Mengakses Aplikasi Menggunakan Jaringan Lain<br><br>Silakan Presensi Menggunakan Jaringan Wifi Kantor</h5>",
+        confirmButtonColor: "#8EC165"
     });
 }
 
 function notifPlh() {
-    swal({
-        icon: "error",
-        title: "<h4>Oops...<h4>",
-        type: "warning",
-        text: "<h5>Anda login sebagai plh/plt</br></br>Silakan login atas diri anda sendiri untuk melakukan presensi</h5>",
-        html: true
+    Swal.fire({
+        icon: "warning",
+        title: "Oops...",
+        html: "<h5>Anda login sebagai plh/plt<br><br>Silakan login atas diri anda sendiri untuk melakukan presensi</h5>",
+        confirmButtonColor: "#8EC165"
     });
 }
 
 function salahModePerangkat() {
-    swal({
-        icon: "error",
-        title: "<h4>Oops...<h4>",
-        type: "warning",
-        text: "<h5>Anda Tidak Menggunakan Handphone</br></br>Silakan Presensi Melalui Handphone</h5>",
-        html: true
+    Swal.fire({
+        icon: "warning",
+        title: "Oops...",
+        html: "<h5>Anda Tidak Menggunakan Handphone<br><br>Silakan Presensi Melalui Handphone</h5>",
+        confirmButtonColor: "#8EC165"
     });
 }
 
 function simpanApel() {
-    swal({
-        title: "<h5>PRESENSI APEL</h5>",
-        text: "<h5>SIMPAN PRESENSI APEL HARI INI?</h5>",
-        type: "info",
+    Swal.fire({
+        title: "PRESENSI APEL",
+        html: "<h5>SIMPAN PRESENSI APEL HARI INI?</h5>",
+        icon: "info",
         showCancelButton: true,
         confirmButtonColor: "#8EC165",
-        confirmButtonText: "Ya, Simpan !",
-        cancelButtonText: "Tidak !",
-        html: true,
-        closeOnConfirm: false,
-        closeOnCancel: false
-    }, function (isConfirm) {
-        if (isConfirm) {
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Ya, Simpan!",
+        cancelButtonText: "Tidak!"
+    }).then((result) => {
+        if (result.isConfirmed) {
             $.post('simpan_presensi_apel', function (response) {
                 var json = jQuery.parseJSON(response);
                 if (json.st == 1) {
-                    swal({
-                        title: "Berhasil !",
-                        text: "Anda sudah presensi Apel hari ini",
-                        type: "success",
-                        confirmButtonColor: "#8EC165",
-                        confirmButtonText: "Oke",
-                    }, function () {
+                    Swal.fire({
+                        title: "Berhasil!",
+                        text: "Anda sudah presensi Apel hari ini.",
+                        icon: "success",
+                        confirmButtonColor: "#8EC165"
+                    }).then(() => {
                         location.reload();
                     });
                 } else if (json.st == 0) {
-                    swal("Gagal", "Anda Gagal presensi Apel, Silakan Ulangi Lagi", "error");
+                    Swal.fire("Gagal", "Anda Gagal presensi Apel, Silakan Ulangi Lagi", "error");
                 } else if (json.st == 2) {
-                    swal("Peringatan", "Anda Sudah Presensi Apel, Silakan Lanjutkan Pekerjaan", "info");
+                    Swal.fire("Peringatan", "Anda Sudah Presensi Apel, Silakan Lanjutkan Pekerjaan", "info");
                 }
-            })
-        } else {
-            swal("Batal", "Anda Tidak Presensi Apel", "error");
+            }).fail(() => {
+                Swal.fire("Gagal", "Terjadi kesalahan saat menghubungi server.", "error");
+            });
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            Swal.fire("Batal", "Anda Tidak Presensi Apel", "error");
         }
-    }
-    );
+    });
 }
 
 function simpanPerangkat() {
-    swal({
-        title: "<h5>Anda Belum Mendaftarkan Perangkat Untuk Melakukan Presensi</h5>",
-        text: "<h5>Apa Anda Yakin Akan Mendaftarkan Perangkat Ini Untuk Melakukan Presensi?</h5>",
-        type: "info",
+    Swal.fire({
+        title: "DAFTAR PERANGKAT PRESENSI",
+        html: "<h5>Anda belum mendaftarkan perangkat ini.<br><br>Apakah Anda yakin ingin mendaftarkannya?</h5>",
+        icon: "info",
         showCancelButton: true,
         confirmButtonColor: "#8EC165",
-        confirmButtonText: "Ya, Simpan !",
-        cancelButtonText: "Tidak !",
-        html: true,
-        closeOnConfirm: false,
-        closeOnCancel: false
-    }, function (isConfirm) {
-        if (isConfirm) {
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Ya, Simpan!",
+        cancelButtonText: "Tidak!"
+    }).then((result) => {
+        if (result.isConfirmed) {
             $.post('simpan_perangkat', function (response) {
                 var json = jQuery.parseJSON(response);
                 if (json.st == 1) {
-                    swal({
-                        title: "Berhasil !",
-                        text: "Anda sudah mendaftarkan perangkat, silakan mengisi presensi",
-                        type: "success",
-                        confirmButtonColor: "#8EC165",
-                        confirmButtonText: "Oke",
-                    }, function () {
+                    Swal.fire({
+                        title: "Berhasil!",
+                        text: "Perangkat berhasil didaftarkan, silakan lanjutkan presensi.",
+                        icon: "success",
+                        confirmButtonColor: "#8EC165"
+                    }).then(() => {
                         location.reload();
                     });
                 } else if (json.st == 0) {
-                    swal("Gagal", "Anda Gagal Mendaftarkan Perangkat, SIlakan Ulangi Lagi", "error");
+                    Swal.fire("Gagal", "Anda gagal mendaftarkan perangkat. Silakan ulangi lagi.", "error");
                 }
-            })
-        } else {
-            swal("Batal", "Anda Tidak Mendaftarkan Perangkat", "error");
+            }).fail(() => {
+                Swal.fire("Gagal", "Terjadi kesalahan koneksi ke server.", "error");
+            });
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            Swal.fire("Batal", "Anda Tidak Mendaftarkan Perangkat", "error");
         }
-    }
-    );
+    });
 }
 
 function salahPerangkat() {
-    swal({
-        icon: "error",
-        title: "<h4>Oops...<h4>",
-        type: "warning",
-        text: "<h5>Anda Menggunakan Perangkat Lain Untuk Presensi</br></br>Silakan Menggunakan Perangkat Yang Telah Didaftarkan Untuk Presensi</h5>",
-        html: true
+    Swal.fire({
+        icon: "warning",
+        title: "Oops...",
+        html: "<h5>Anda Menggunakan Perangkat Lain Untuk Presensi<br><br>Silakan Gunakan Perangkat Yang Telah Didaftarkan</h5>",
+        confirmButtonColor: "#8EC165"
     });
 }
 
@@ -499,38 +477,61 @@ if (result != '-1') {
     }
 }
 
+function notifikasi(pesan, result) {
+    if (result == '1') {
+        sukses(pesan);
+    } else if (result == '2') {
+        peringatan(pesan);
+    } else if (result == '3') {
+        gagal(pesan);
+    }
+}
+
 function sukses(pesan) {
-    swal({
-        title: "<h4>Sukses<h4>",
-        type: "success",
-        text: "<h5>" + pesan + "</h5>",
-        html: true
+    Swal.fire({
+        title: 'Sukses',
+        html: '<h5>' + pesan + '</h5>',
+        icon: 'success',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#4caf50', // hijau
+        customClass: {
+            popup: 'swal2-small' // opsional styling custom
+        }
     });
 }
 
 function peringatan(pesan) {
-    swal({
-        title: "<h4>Oops...<h4>",
-        type: "warning",
-        text: "<h5>" + pesan + "</h5>",
-        html: true
+    Swal.fire({
+        title: 'Oops...',
+        html: '<h5>' + pesan + '</h5>',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ff9800', // oranye
+        customClass: {
+            popup: 'swal2-small'
+        }
     });
 }
 
 function gagal(pesan) {
-    swal({
-        title: "<h4>Oops...<h4>",
-        type: "error",
-        text: "<h5>" + pesan + "</h5>",
-        html: true
+    Swal.fire({
+        title: 'Oops...',
+        html: '<h5>' + pesan + '</h5>',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#f44336', // merah
+        customClass: {
+            popup: 'swal2-small'
+        }
     });
 }
 
 function BukaModal() {
-    swal({
-        title: "Memuat...",
-        text: "Silakan tunggu sebentar.",
-        imageUrl: "assets/images/loader.gif", // loader custom jika mau (opsional)
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
     });
@@ -561,7 +562,7 @@ function BukaModal() {
             }
             $("#modal-content").show();
             $("#btnSimpan").attr("disabled", false);
-            swal.close();
+            Swal.close();
         } else if (json.st == 0) {
             pesan('PERINGATAN', json.msg, '');
             $('#table_pegawai').DataTable().ajax.reload();
@@ -572,11 +573,11 @@ function BukaModal() {
 }
 
 function BukaModalIstirahat() {
-    swal({
-        title: "Memuat...",
-        text: "Silakan tunggu sebentar.",
-        imageUrl: "assets/images/loader.gif",
-        imageSize: "200x200", // Ukuran gambar: width x height (dalam piksel)
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
     });
@@ -606,7 +607,7 @@ function BukaModalIstirahat() {
                 $('#btnSimpanIstirahat').addClass('hidden');
             }
 
-            swal.close();
+            Swal.close();
             $("#modal-content").show();
             $("#btnSimpan").attr("disabled", false);
         } else {
@@ -616,6 +617,15 @@ function BukaModalIstirahat() {
 }
 
 function EditModal(id, userid) {
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
     $.post('edit_presensi', {
         id: id, userid: userid
     }, function (response) {
@@ -643,6 +653,8 @@ function EditModal(id, userid) {
                 $("#pulang").val('');
             }
             $("#ket_").append(json.ket);
+
+            Swal.close();
         } else if (json.st == 0) {
             pesan('PERINGATAN', json.msg, '');
             $('#table_pegawai').DataTable().ajax.reload();
@@ -651,6 +663,15 @@ function EditModal(id, userid) {
 }
 
 function loadPegawai() {
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
     $.post('show_list_pegawai', function (response) {
         var json = jQuery.parseJSON(response);
         if (json.st == 1) {
@@ -658,6 +679,8 @@ function loadPegawai() {
             $("#pegawai_").html('');
 
             $("#pegawai_").append(json.pegawai);
+
+            Swal.close();
         } else if (json.st == 0) {
             pesan('PERINGATAN', json.msg, '');
             $('#table_pegawai').DataTable().ajax.reload();
@@ -681,35 +704,16 @@ function pilihPenandatangan(id) {
     });
 }
 
-function presensiRapat() {
-    $("#loader").show();
-    $("#modal-content").hide();
-    $("#btnSimpanRapat").attr("disabled", true);
-    $.post('show_rapat', function (response) {
-        var json = jQuery.parseJSON(response);
-        if (json.st == 1) {
-            $("#presensi-rapat").modal('show');
-            $("#jamRapat").html('');
-            $("#hariRapat").html('');
-            $("#rapat_").html('');
-
-            $("#jamRapat").append(json.jam);
-            $("#hariRapat").append(json.hari);
-            $("#rapat_").append(json.rapat);
-
-            $("#loader").hide();
-            $("#modal-content").show();
-            $("#btnSimpanRapat").attr("disabled", false);
-        } else if (json.st == 0) {
-            pesan('PERINGATAN', json.msg, '');
-            $('#table_pegawai').DataTable().ajax.reload();
-            $("#loader").hide();
-            $("#modal-content").show();
-        }
-    });
-}
-
 function loadKegiatan(id) {
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
     $.post('show_data_kegiatan', {
         id: id
     }, function (response) {
@@ -727,6 +731,7 @@ function loadKegiatan(id) {
             $("#nama_kegiatan_").val(json.nama_kegiatan);
             //console.log(json.peserta);
 
+            Swal.close();
         } else if (json.st == 0) {
             pesan('PERINGATAN', json.msg, '');
             $('#table_pegawai').DataTable().ajax.reload();
@@ -735,7 +740,15 @@ function loadKegiatan(id) {
 }
 
 function presensiLainnya() {
-    $("#loader").show();
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
     $("#modal-content").hide();
     $("#btnSimpanKegiatan").attr("disabled", true);
     $.post('show_kegiatan', function (response) {
@@ -750,7 +763,7 @@ function presensiLainnya() {
             $("#hariKegiatan").append(json.hari);
             $("#kegiatan_").append(json.rapat);
 
-            $("#loader").hide();
+            Swal.close();
             $("#modal-content").show();
             $("#btnSimpanKegiatan").attr("disabled", false);
         } else if (json.st == 0) {
@@ -763,8 +776,8 @@ function presensiLainnya() {
 }
 
 function detailPresensiApel(tgl) {
-    var form = $('<form action="laporan_apel_detail" method="post">' +
-        '<input type="hidden" name="tgl" value="' + tgl + '">' +
+    var form = $('<form id="formDetailPresensiApel">' +
+        '<input type="hidden" name="tgl_apel" value="' + tgl + '">' +
         '</form>');
     // Menambahkan formulir ke dalam dokumen
     $('body').append(form);
@@ -773,17 +786,7 @@ function detailPresensiApel(tgl) {
 }
 
 function detailPresensiKegiatan(id) {
-    var form = $('<form action="laporan_detail_kegiatan" method="post">' +
-        '<input type="hidden" name="id" value="' + id + '">' +
-        '</form>');
-    // Menambahkan formulir ke dalam dokumen
-    $('body').append(form);
-    // Mengirimkan formulir
-    form.submit();
-}
-
-function detailPresensiRapat(id) {
-    var form = $('<form action="detail_rapat" method="post">' +
+    var form = $('<form id="formDetailPresensiKegiatan">' +
         '<input type="hidden" name="id" value="' + id + '">' +
         '</form>');
     // Menambahkan formulir ke dalam dokumen
@@ -793,10 +796,11 @@ function detailPresensiRapat(id) {
 }
 
 function ModalRole(id) {
-    swal({
-        title: "Memuat...",
-        text: "Silakan tunggu sebentar.",
-        imageUrl: "assets/images/loader.gif", // loader custom jika mau (opsional)
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
     });
@@ -808,7 +812,7 @@ function ModalRole(id) {
     $.post('show_role',
         { id: id },
         function (response) {
-            swal.close();
+            Swal.close();
 
             try {
                 const json = JSON.parse(response); // pastikan response valid JSON
@@ -913,48 +917,70 @@ function ModalRole(id) {
 }
 
 function aktifPeran(id) {
-    swal({
+    Swal.fire({
         title: "Yakin ingin mengaktifkan peran pegawai?",
         text: "Data peran ini akan diaktifkan kembali perannya.",
-        type: "warning",
+        icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#DD6B55",
+        cancelButtonColor: "#6c757d",
         confirmButtonText: "Ya, aktifkan!",
-        cancelButtonText: "Batal",
-        closeOnConfirm: false
-    }, function () {
-        // Eksekusi penghapusan setelah konfirmasi
-        $.post('aktif_peran', { id: id }, function (response) {
-            // kamu bisa parse response jika berupa JSON
-            swal("Berhasil!", "Peran telah aktifkan.", "success");
-            // misal reload tabel setelah hapus:
-            ModalRole('-1');
-        }).fail(function () {
-            swal("Gagal", "Terjadi kesalahan saat menghapus data.", "error");
-        });
+        cancelButtonText: "Batal"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Eksekusi pengaktifan setelah konfirmasi
+            $.post('aktif_peran', { id: id }, function (response) {
+                Swal.fire({
+                    title: "Berhasil!",
+                    text: "Peran telah diaktifkan.",
+                    icon: "success",
+                    confirmButtonColor: "#8EC165"
+                }).then(() => {
+                    ModalRole('-1'); // reload tabel atau tindakan lain
+                });
+            }).fail(function () {
+                Swal.fire({
+                    title: "Gagal",
+                    text: "Terjadi kesalahan saat mengaktifkan data.",
+                    icon: "error"
+                });
+            });
+        }
     });
 }
 
 function blokPeran(id) {
-    swal({
+    Swal.fire({
         title: "Yakin ingin menonaktifkan peran pegawai?",
         text: "Data peran ini akan dinonaktifkan perannya.",
-        type: "warning",
+        icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#DD6B55",
+        cancelButtonColor: "#6c757d",
         confirmButtonText: "Ya, nonaktifkan!",
-        cancelButtonText: "Batal",
-        closeOnConfirm: false
-    }, function () {
-        // Eksekusi penghapusan setelah konfirmasi
-        $.post('blok_peran', { id: id }, function (response) {
-            // kamu bisa parse response jika berupa JSON
-            swal("Berhasil!", "Peran telah nonaktifkan.", "success");
-            // misal reload tabel setelah hapus:
-            ModalRole('-1');
-        }).fail(function () {
-            swal("Gagal", "Terjadi kesalahan saat menghapus data.", "error");
-        });
+        cancelButtonText: "Batal"
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Eksekusi setelah konfirmasi
+            $.post('blok_peran', { id: id }, function (response) {
+                // Jika server kirim JSON, kamu bisa parse:
+                // var res = JSON.parse(response);
+                Swal.fire({
+                    title: "Berhasil!",
+                    text: "Peran telah dinonaktifkan.",
+                    icon: "success",
+                    confirmButtonColor: "#8EC165"
+                }).then(() => {
+                    ModalRole('-1'); // misal reload tabel atau modal
+                });
+            }).fail(function () {
+                Swal.fire({
+                    title: "Gagal!",
+                    text: "Terjadi kesalahan saat menghapus data.",
+                    icon: "error"
+                });
+            });
+        }
     });
 }
 
@@ -983,38 +1009,160 @@ function formatPegawaiSelection(option) {
 }
 
 function hapusKegiatan(id) {
-    swal({
+    Swal.fire({
         title: "<h5>HAPUS AGENDA KEGIATAN LAINNYA</h5>",
-        text: "<h5>Apa Anda Yakin Akan Menghapus Agenda Kegiatan Lainnya?</h5>",
-        type: "info",
+        html: "<h5>Apa Anda Yakin Akan Menghapus Agenda Kegiatan Lainnya?</h5>",
+        icon: "info",
         showCancelButton: true,
         confirmButtonColor: "#DD2A2A",
-        confirmButtonText: "Ya, Hapus !",
-        cancelButtonText: "Tidak !",
-        html: true,
-        closeOnConfirm: false,
-        closeOnCancel: false
-    }, function (isConfirm) {
-        if (isConfirm) {
+        cancelButtonColor: "#6c757d",
+        confirmButtonText: "Ya, Hapus!",
+        cancelButtonText: "Tidak!"
+    }).then((result) => {
+        if (result.isConfirmed) {
             $.post('hapus_kegiatan', { id: id }, function (response) {
                 var json = jQuery.parseJSON(response);
+
                 if (json.st == 1) {
-                    swal({
-                        title: "Berhasil !",
-                        text: "Anda Sudah Menghapus Agenda Kegiatan Lainnya",
-                        type: "success",
+                    Swal.fire({
+                        title: "Berhasil!",
+                        text: "Anda Sudah Menghapus Agenda Kegiatan Lainnya.",
+                        icon: "success",
                         confirmButtonColor: "#8EC165",
-                        confirmButtonText: "Oke",
-                    }, function () {
-                        location.reload();
+                        confirmButtonText: "Oke"
+                    }).then(() => {
+                        loadPage('kegiatan');
                     });
                 } else if (json.st == 0) {
-                    swal("Gagal", "Anda Gagal Menghapus Agenda Kegiatan Lainnya, Silakan Ulangi Lagi", "error");
+                    Swal.fire({
+                        title: "Gagal!",
+                        text: "Anda Gagal Menghapus Agenda Kegiatan Lainnya, Silakan Ulangi Lagi.",
+                        icon: "error"
+                    });
                 }
-            })
-        } else {
-            swal("Batal", "Anda Batal Menghapus Agenda Kegiatan Lainnya", "error");
+            });
+        } else if (result.dismiss === Swal.DismissReason.cancel) {
+            Swal.fire({
+                title: "Batal",
+                text: "Anda Batal Menghapus Agenda Kegiatan Lainnya.",
+                icon: "error"
+            });
         }
-    }
-    );
+    });
+}
+
+let map, userMarker, polygonLayer, polygonCoords = [];
+
+function BukaModalLokasiMPP() {
+    Swal.fire({
+        title: 'Memuat...',
+        text: 'Silakan tunggu sebentar.',
+        imageUrl: 'assets/images/loader.gif',
+        imageWidth: 200,
+        showConfirmButton: false,
+        allowOutsideClick: false
+    });
+
+    $("#modal-content").hide();
+    $("#btnSimpan").attr("disabled", true);
+    $.post('show_presensi', function (response) {
+        var json = jQuery.parseJSON(response);
+        if (json.st == 1) {
+            $("#tambah-modal").modal('show');
+            $("#jam").html('');
+            $("#hari").html('');
+            $("#jam_absen").val('');
+
+            $("#jam").append(json.jam);
+            $("#hari").append(json.hari);
+            $("#jam_absen").val(json.jam);
+
+            Swal.close();
+            $("#modal-content").show();
+
+            $('#tambah-modal').on('shown.bs.modal', function () {
+                $('#btnSimpan').addClass('hidden');
+                if (!map) {
+                    // Buat map pertama kali
+                    map = L.map('map');
+
+                    // Tambah tile layer
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors'
+                    }).addTo(map);
+
+                    // Lokasi user
+                    map.locate({
+                        setView: true,
+                        maxZoom: 20,
+                        enableHighAccuracy: true,
+                        watch: true
+                    });
+
+                    map.on("locationfound", function (e) {
+                        if (userMarker) {
+                            userMarker.setLatLng(e.latlng);
+                        } else {
+                            userMarker = L.marker(e.latlng).addTo(map);
+                        }
+
+                        map.setView(e.latlng, 19); // zoom dekat
+
+                        // Cek apakah user ada di dalam polygon
+                        if (polygonCoords.length > 0) {
+                            checkInsidePolygon(e.latlng);
+                        }
+                    });
+
+                    map.on("locationerror", function () {
+                        alert("Tidak bisa mendapatkan lokasi Anda");
+                        map.setView([-6.2, 106.816], 17); // fallback ke Jakarta
+                    });
+
+                    // Ambil polygon dari server
+                    $.getJSON('get_lokasi', function (data) {
+                        polygonCoords = data.koordinat.map(p => [p.lng, p.lat]); // lng,lat sesuai geojson
+
+                        // Pastikan polygon tertutup
+                        if (
+                            polygonCoords[0][0] !== polygonCoords[polygonCoords.length - 1][0] ||
+                            polygonCoords[0][1] !== polygonCoords[polygonCoords.length - 1][1]
+                        ) {
+                            polygonCoords.push(polygonCoords[0]);
+                        }
+
+                        // Gambar polygon di Leaflet (ingat Leaflet pakai [lat, lng])
+                        polygonLayer = L.polygon(data.koordinat.map(p => [p.lat, p.lng]), {
+                            color: "red",
+                            fillColor: "#f03",
+                            fillOpacity: 0.4
+                        }).addTo(map);
+
+                        map.setView(polygonLayer.getBounds().getCenter(), 17);
+                    });
+
+                } else {
+                    map.invalidateSize();
+                    map.locate({ setView: true, maxZoom: 17 });
+                }
+            });
+            if (json.jam_masuk) {
+                $("#jam_masuk").html('');
+                $("#jam_masuk").append(json.jam_masuk);
+                $('#jam_masuk').toggleClass('bg-red bg-blue');
+            }
+            if (json.jam_pulang) {
+                $("#jam_pulang").html('');
+                $("#jam_pulang").append(json.jam_pulang);
+                $('#jam_pulang').toggleClass('bg-red bg-blue');
+                $('#btnSimpan').addClass('hidden');
+            }
+            $("#btnSimpan").attr("disabled", false);
+        } else if (json.st == 0) {
+            pesan('PERINGATAN', json.msg, '');
+            $('#table_pegawai').DataTable().ajax.reload();
+            $("#loader").hide();
+            $("#modal-content").show();
+        }
+    });
 }

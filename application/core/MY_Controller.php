@@ -60,6 +60,7 @@ class MY_Controller extends CI_Controller
                     $user_data = $result['response']['data'][0];
                     $token_presensi = $user_data['token'];
                     $this->session->set_userdata('jabatan', $user_data['jabatan']);
+                    $this->session->set_userdata('pegawai_id', $user_data['pegawai_id']);
                 }
             }
         }

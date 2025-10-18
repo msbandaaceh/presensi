@@ -5,6 +5,7 @@ $route['default_controller'] = 'HalamanUtama';
 $route['keluar'] = 'HalamanUtama/keluar';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
+$route['cek_token'] = 'HalamanUtama/cek_token_sso';
 
 $route['kegiatan'] = 'HalamanKegiatan';
 
@@ -19,6 +20,7 @@ $route['laporan_apel'] = 'HalamanLaporan/laporan_apel';
 $route['laporan_apel_detail'] = 'HalamanLaporan/laporan_apel_detail';
 
 $route['cetak_laporan_kegiatan'] = 'HalamanLaporan/cetak_detail_laporan_kegiatan';
+$route['cetak_apel'] = 'HalamanLaporan/cetak_detail_laporan_apel';
 
 $route['simpan_perangkat'] = 'HalamanUtama/simpan_perangkat';
 $route['simpan_presensi'] = 'HalamanUtama/simpan_presensi';
@@ -48,4 +50,7 @@ $route['edit_peran'] = 'HalamanUtama/edit_peran';
 
 $route['cetak_masuk'] = 'HalamanLaporan/cetak_laporan_masuk';
 $route['cetak_pulang'] = 'HalamanLaporan/cetak_laporan_pulang';
+
+$route['get_status_pegawai'] = 'HalamanUtama/get_status_pegawai';
+$route['get_lokasi'] = 'HalamanUtama/get_lokasi';
 

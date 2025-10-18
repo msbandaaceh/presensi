@@ -414,17 +414,7 @@ class ModelPresensi extends CI_Model
         $this->db->select('u.nip AS nip, u.fullname AS nama, u.jabatan AS jabatan, TIME(p.created_on) AS waktu');
         $this->db->where('u.userid = p.userid AND DATE(p.created_on) = "' . $tgl . '"');
         $this->db->order_by('TIME(p.created_on)', 'ASC');
-        $query = $this->db->get('sso.v_users u, register_presensi_apel p');
-
-        return $query->result();
-    }
-
-    public function get_detail_presensi_rapat($id)
-    {
-        $this->db->select('u.nip AS nip, u.fullname AS nama, u.jabatan AS jabatan, TIME(p.created_on) AS waktu');
-        $this->db->where('u.userid = p.userid AND p.idrapat = "' . $id . '"');
-        $this->db->order_by('u.id_grup, u.jab_id', 'ASC');
-        $query = $this->db->get('v_users u, register_presensi_rapat p');
+        $query = $this->db->get($this->db_sso .'.v_users u, register_presensi_apel p');
 
         return $query->result();
     }
@@ -434,7 +424,7 @@ class ModelPresensi extends CI_Model
         $this->db->select('u.nip AS nip, u.fullname AS nama, u.jabatan AS jabatan, TIME(l.created_on) AS waktu');
         $this->db->where('u.userid = l.userid AND l.idkegiatan = "' . $id . '"');
         $this->db->order_by('TIME(l.created_on)', 'ASC');
-        $query = $this->db->get('v_users u, register_presensi_lainnya l');
+        $query = $this->db->get($this->db_sso .'.v_users u, register_presensi_lainnya l');
 
         return $query->result();
     }
