@@ -480,6 +480,7 @@
     <script src="<?= site_url('assets/plugins/datatables-buttons/js/buttons.colVis.min.js') ?>" defer></script>
 
     <script src="assets/plugins/sweetalert2/sweetalert2.all.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 
     <?php
     if ($this->session->flashdata('info')) {
