@@ -111,7 +111,9 @@
         </div>
     </div>
     <!-- #END# Page Loader -->
-
+    <!-- Overlay For Sidebars -->
+    <div class="overlay"></div>
+    <!-- #END# Overlay For Sidebars -->
     <!-- Navbar -->
     <nav class="navbar">
         <div class="container-fluid">
@@ -140,6 +142,9 @@
             </div>
             <!-- #User Info -->
             <!-- Menu -->
+            <?php 
+            $peran = isset($peran) ? $peran : $this->session->userdata('peran');
+            ?>
             <div class="menu">
                 <ul class="list">
                     <li id="dashboard">
@@ -268,6 +273,32 @@
                                 <i class="material-icons">schedule</i>
                                 <span>Kegiatan Lainnya</span></a>
                         </li>
+                    <?php } ?>
+                    <li>
+                        <a href="javascript:void(0);" class="menu-toggle">
+                            <i class="material-icons">help</i>
+                            <span>Panduan</span>
+                        </a>
+                        <ul class="ml-menu">
+                            <?php if ($peran == 'admin') { ?>
+                                <li><a href="javascript:;" data-page="panduan_admin">Panduan Admin</a></li>
+                                <li><a href="javascript:;" data-page="panduan_operator">Panduan Operator</a></li>
+                                <li><a href="javascript:;" data-page="panduan_user">Panduan Pengguna</a></li>
+                            <?php } elseif ($peran == 'operator') { ?>
+                                <li><a href="javascript:;" data-page="panduan_operator">Panduan Operator</a></li>
+                                <li><a href="javascript:;" data-page="panduan_user">Panduan Pengguna</a></li>
+                            <?php } else { ?>
+                                <li><a href="javascript:;" data-page="panduan_user">Panduan Pengguna</a></li>
+                            <?php } ?>
+                        </ul>
+                    </li>
+                    <?php if ($peran == 'admin') { ?>
+                    <li>
+                        <a href="javascript:;" data-page="dokumentasi_teknis">
+                            <i class="material-icons">code</i>
+                            <span>Dokumentasi Teknis</span>
+                        </a>
+                    </li>
                     <?php } ?>
                     <li>
                         <a href="<?= site_url('keluar') ?>">
@@ -511,6 +542,7 @@
             $(document).on('click', '[data-page]', function (e) {
                 e.preventDefault();
                 $('body').removeClass('overlay-open');
+                $('.overlay').removeAttr('style');
                 let page = $(this).data('page');
                 loadPage(page);
             });

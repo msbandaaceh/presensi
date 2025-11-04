@@ -29,12 +29,37 @@ class HalamanUtama extends MY_Controller
             'laporan_satker',
             'laporan_apel',
             'laporan_kegiatan',
-            'kegiatan'
+            'kegiatan',
+            'panduan_admin',
+            'panduan_operator',
+            'panduan_user',
+            'dokumentasi_teknis'
         ];
 
         if (in_array($halaman, $allowed)) {
-            $data['peran'] = $this->session->userdata('peran');
+            $peran = $this->session->userdata('peran');
+            $data['peran'] = $peran;
             $data['page'] = $halaman;
+
+            // Load halaman panduan langsung dari view
+            if (in_array($halaman, ['panduan_admin', 'panduan_operator', 'panduan_user', 'dokumentasi_teknis'])) {
+                // Validasi akses berdasarkan peran
+                if ($halaman == 'panduan_admin' && $peran != 'admin') {
+                    show_404();
+                    return;
+                }
+                if ($halaman == 'panduan_operator' && !in_array($peran, ['admin', 'operator'])) {
+                    show_404();
+                    return;
+                }
+                if ($halaman == 'dokumentasi_teknis' && $peran != 'admin') {
+                    show_404();
+                    return;
+                }
+                // Load view langsung
+                $this->load->view($halaman, $data);
+                return;
+            }
 
             if ($halaman == 'laporan_harian') {
                 $data['presensi'] = $this->model->all_pres_pengguna($this->session->userdata("userid"));

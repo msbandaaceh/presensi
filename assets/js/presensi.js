@@ -490,39 +490,30 @@ function notifikasi(pesan, result) {
 function sukses(pesan) {
     Swal.fire({
         title: 'Sukses',
-        html: '<h5>' + pesan + '</h5>',
+        text: pesan,
         icon: 'success',
         confirmButtonText: 'OK',
         confirmButtonColor: '#4caf50', // hijau
-        customClass: {
-            popup: 'swal2-small' // opsional styling custom
-        }
     });
 }
 
 function peringatan(pesan) {
     Swal.fire({
         title: 'Oops...',
-        html: '<h5>' + pesan + '</h5>',
+        text: pesan,
         icon: 'warning',
         confirmButtonText: 'OK',
         confirmButtonColor: '#ff9800', // oranye
-        customClass: {
-            popup: 'swal2-small'
-        }
     });
 }
 
 function gagal(pesan) {
     Swal.fire({
         title: 'Oops...',
-        html: '<h5>' + pesan + '</h5>',
+        text: pesan,
         icon: 'error',
         confirmButtonText: 'OK',
         confirmButtonColor: '#f44336', // merah
-        customClass: {
-            popup: 'swal2-small'
-        }
     });
 }
 
@@ -530,7 +521,6 @@ function BukaModal() {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -576,7 +566,6 @@ function BukaModalIstirahat() {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -620,7 +609,6 @@ function EditModal(id, userid) {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -666,7 +654,6 @@ function loadPegawai() {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -708,7 +695,6 @@ function loadKegiatan(id) {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -743,7 +729,6 @@ function presensiLainnya() {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -799,7 +784,6 @@ function ModalRole(id) {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
@@ -1057,7 +1041,6 @@ function BukaModalLokasiMPP() {
     Swal.fire({
         title: 'Memuat...',
         text: 'Silakan tunggu sebentar.',
-        imageUrl: 'assets/images/loader.gif',
         imageWidth: 200,
         showConfirmButton: false,
         allowOutsideClick: false
