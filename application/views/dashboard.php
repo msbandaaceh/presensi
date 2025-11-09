@@ -362,15 +362,51 @@ if (!isset($kegiatan_mendatang)) {
             <div class="body">
                 <div class="panel-group" id="accordion_11" role="tablist" aria-multiselectable="true">
                     <div class="panel panel-col-teal">
+                        <div class="panel-heading" role="tab" id="headingOne_112">
+                            <h4 class="panel-title">
+                                <a role="button" data-toggle="collapse" data-parent="#accordion_11" href="#collapseOne_112"
+                                    aria-expanded="true" aria-controls="collapseOne_112">
+                                    APLIKASI PRESENSI PEGAWAI versi 1.1.2
+                                </a>
+                            </h4>
+                        </div>
+                        <div id="collapseOne_112" class="panel-collapse collapse in" role="tabpanel"
+                            aria-labelledby="headingOne_112">
+                            <div class="panel-body">
+                                <h4>Penambahan Fitur :</h4>
+                                <ol>
+                                    <li>Integrasi dengan API tanggal merah dari aplikasi Seudati untuk perhitungan hari kerja yang lebih akurat.
+                                    </li>
+                                    <li>Perhitungan hari kerja otomatis mengecualikan hari Sabtu, Minggu, dan tanggal merah (hari libur nasional).
+                                    </li>
+                                    <li>Penambahan menu Panduan Penggunaan berdasarkan peran (Admin, Operator, Pengguna).
+                                    </li>
+                                    <li>Penambahan menu Dokumentasi Teknis untuk Admin.
+                                    </li>
+                                </ol>
+                                <h4>Optimasi :</h4>
+                                <ol>
+                                    <li>Dashboard diperkaya dengan informasi statistik presensi yang lebih lengkap.
+                                    </li>
+                                    <li>Perhitungan statistik presensi bulanan menggunakan data hari kerja yang akurat (tidak termasuk hari libur).
+                                    </li>
+                                    <li>Caching data tanggal merah untuk meningkatkan performa aplikasi.
+                                    </li>
+                                </ol>
+                                Buku Panduan penggunaan aplikasi dapat di unduh melalui <a
+                                    href="https://drive.google.com/file/d/15TFYfLGWsq40X9B5wHVbtCGvD51b6sQo/view?usp=drive_link">tautan
+                                    ini</a>.
+                            </div>
+                        </div>
                         <div class="panel-heading" role="tab" id="headingOne_111">
                             <h4 class="panel-title">
                                 <a role="button" data-toggle="collapse" data-parent="#accordion_11" href="#collapseOne_111"
-                                    aria-expanded="true" aria-controls="collapseOne_111">
+                                    aria-expanded="false" aria-controls="collapseOne_111">
                                     APLIKASI PRESENSI PEGAWAI versi 1.1.1
                                 </a>
                             </h4>
                         </div>
-                        <div id="collapseOne_111" class="panel-collapse collapse in" role="tabpanel"
+                        <div id="collapseOne_111" class="panel-collapse collapse" role="tabpanel"
                             aria-labelledby="headingOne_111">
                             <div class="panel-body">
                                 <h4>Optimasi :</h4>
