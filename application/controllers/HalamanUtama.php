@@ -637,7 +637,7 @@ class HalamanUtama extends MY_Controller
                     'expires' => time() + (86500 * 30 * 12),
                     'path' => '/',
                     'domain' => $cookie_domain, // pastikan subdomain
-                    'secure' => false, // hanya jika HTTPS
+                    'secure' => $this->config->item('cookie_secure'), // hanya jika HTTPS
                     'httponly' => true,
                     'samesite' => 'Lax', // atau 'Strict'
                 ]
@@ -781,7 +781,7 @@ class HalamanUtama extends MY_Controller
                     'expires' => time() + (86500 * 30 * 12),
                     'path' => '/',
                     'domain' => $cookie_domain, // pastikan subdomain
-                    'secure' => false, // hanya jika HTTPS
+                    'secure' => $this->config->item('cookie_secure'), // hanya jika HTTPS
                     'httponly' => true,
                     'samesite' => 'Lax', // atau 'Strict'
                 ]
