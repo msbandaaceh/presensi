@@ -27,7 +27,10 @@ class HalamanUtama extends MY_Controller
         // Data presensi bulan ini untuk user
         $data['presensi_bulan_ini'] = $this->model->all_pres_pengguna($userid);
         
-        // Hitung statistik bulan ini
+        // Ambil data tanggal merah dari Seudati
+        $tanggal_merah = $this->apihelper->get_all_tanggal_merah();
+        
+        // Hitung statistik bulan ini (hanya hari kerja Senin-Jumat, bukan tanggal merah)
         $total_hari = 0;
         $sudah_presensi = 0;
         $belum_presensi = 0;
@@ -36,11 +39,18 @@ class HalamanUtama extends MY_Controller
         
         foreach ($data['presensi_bulan_ini'] as $presensi) {
             if ($presensi->Date <= $hari_ini) {
-                $total_hari++;
-                if ($presensi->id) {
-                    $sudah_presensi++;
-                } else {
-                    $belum_presensi++;
+                // Cek apakah hari kerja (Senin=1 sampai Jumat=5)
+                $day_of_week = date('N', strtotime($presensi->Date));
+                if ($day_of_week >= 1 && $day_of_week <= 5) {
+                    // Cek apakah bukan tanggal merah
+                    if (!in_array($presensi->Date, $tanggal_merah)) {
+                        $total_hari++;
+                        if ($presensi->id) {
+                            $sudah_presensi++;
+                        } else {
+                            $belum_presensi++;
+                        }
+                    }
                 }
             }
         }
@@ -164,7 +174,10 @@ class HalamanUtama extends MY_Controller
                 // Data presensi bulan ini untuk user
                 $data['presensi_bulan_ini'] = $this->model->all_pres_pengguna($userid);
                 
-                // Hitung statistik bulan ini
+                // Ambil data tanggal merah dari Seudati
+                $tanggal_merah = $this->apihelper->get_all_tanggal_merah();
+                
+                // Hitung statistik bulan ini (hanya hari kerja Senin-Jumat, bukan tanggal merah)
                 $total_hari = 0;
                 $sudah_presensi = 0;
                 $belum_presensi = 0;
@@ -172,11 +185,18 @@ class HalamanUtama extends MY_Controller
                 
                 foreach ($data['presensi_bulan_ini'] as $presensi) {
                     if ($presensi->Date <= $hari_ini) {
-                        $total_hari++;
-                        if ($presensi->id) {
-                            $sudah_presensi++;
-                        } else {
-                            $belum_presensi++;
+                        // Cek apakah hari kerja (Senin=1 sampai Jumat=5)
+                        $day_of_week = date('N', strtotime($presensi->Date));
+                        if ($day_of_week >= 1 && $day_of_week <= 5) {
+                            // Cek apakah bukan tanggal merah
+                            if (!in_array($presensi->Date, $tanggal_merah)) {
+                                $total_hari++;
+                                if ($presensi->id) {
+                                    $sudah_presensi++;
+                                } else {
+                                    $belum_presensi++;
+                                }
+                            }
                         }
                     }
                 }
