@@ -79,4 +79,4 @@ $config['jwt_expire_time'] = 7200; // 1 jam
 
 // Konfigurasi Seudati API
 $config['seudati_url'] = 'https://seudati.ms-bandaaceh.go.id/'; # URL Seudati
-$config['seudati_api_key'] = 'M4hk4m4hBn4@2025'; # API Key Seudati
+$config['api_key'] = 'M4hk4m4hBn4@2025'; # API Key Seudati

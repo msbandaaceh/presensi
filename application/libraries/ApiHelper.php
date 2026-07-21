@@ -5,12 +5,14 @@ class ApiHelper
 {
     protected $CI;
     protected $url_api;
+    protected $api_key;
 
     public function __construct()
     {
         // Ambil instance CI dan URL API dari config
         $this->CI =& get_instance();
         $this->url_api = rtrim($this->CI->session->userdata('sso_server'), '/') . '/';
+        $this->api_key = $this->CI->config->item('api_key');
     }
 
     /**
@@ -24,6 +26,11 @@ class ApiHelper
     public function get($endpoint, $params = [], $headers = [])
     {
         $full_url = $this->url_api . ltrim($endpoint, '/');
+
+        // Auto-inject api_key untuk autentikasi SSO
+        if (!empty($this->api_key)) {
+            $params['api_key'] = $this->api_key;
+        }
 
         // Tambahkan query string jika ada parameter
         if (!empty($params)) {
@@ -52,6 +59,11 @@ class ApiHelper
     {
         $full_url = $this->url_api . ltrim($endpoint, '/');
 
+        // Auto-inject api_key untuk autentikasi SSO
+        if (!empty($this->api_key)) {
+            $payload['api_key'] = $this->api_key;
+        }
+
         $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, $full_url);
@@ -75,6 +87,11 @@ class ApiHelper
     public function patch($endpoint, $payload = [], $headers = [])
     {
         $full_url = $this->url_api . ltrim($endpoint, '/');
+
+        // Auto-inject api_key untuk autentikasi SSO
+        if (!empty($this->api_key)) {
+            $payload['api_key'] = $this->api_key;
+        }
 
         $ch = curl_init();
 
@@ -104,15 +121,15 @@ class ApiHelper
     public function get_tanggal_merah($tgl = null)
     {
         $seudati_url = $this->CI->config->item('seudati_url');
-        $api_key = $this->CI->config->item('seudati_api_key');
-        
+        $api_key = $this->CI->config->item('api_key');
+
         if (empty($seudati_url) || empty($api_key)) {
             return [];
         }
 
         $full_url = rtrim($seudati_url, '/') . '/api/cek_tgl_merah';
         $params = ['api_key' => $api_key];
-        
+
         if ($tgl) {
             $params['tgl'] = $tgl;
         }
@@ -139,7 +156,7 @@ class ApiHelper
         }
 
         $data = json_decode($response, true);
-        
+
         if (isset($data['status']) && $data['status'] === 'success' && !empty($data['data'])) {
             // Jika ada tanggal spesifik, return boolean
             if ($tgl) {
@@ -183,15 +200,15 @@ class ApiHelper
         // Cek cache session dulu
         $cache_key = 'tanggal_merah_' . $tahun;
         $cached = $this->CI->session->userdata($cache_key);
-        
+
         if ($cached !== false && is_array($cached)) {
             return $cached;
         }
 
         // Ambil dari API Seudati
         $seudati_url = $this->CI->config->item('seudati_url');
-        $api_key = $this->CI->config->item('seudati_api_key');
-        
+        $api_key = $this->CI->config->item('api_key');
+
         if (empty($seudati_url) || empty($api_key)) {
             return [];
         }
@@ -224,7 +241,7 @@ class ApiHelper
         }
 
         $data = json_decode($response, true);
-        
+
         if (isset($data['status']) && $data['status'] === 'success' && isset($data['data'])) {
             $tanggal_merah = $data['data'];
             // Simpan ke cache session
@@ -243,7 +260,7 @@ class ApiHelper
     private function get_all_tanggal_merah_fallback($tahun)
     {
         $seudati_url = $this->CI->config->item('seudati_url');
-        
+
         if (empty($seudati_url)) {
             return [];
         }
