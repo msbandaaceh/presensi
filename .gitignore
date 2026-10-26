@@ -1,5 +1,6 @@
 .DS_Store
 
+.env
 application/config/database.php
 application/config/config.php
 application/cache/*

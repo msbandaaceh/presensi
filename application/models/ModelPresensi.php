@@ -8,8 +8,6 @@ class ModelPresensi extends CI_Model
     {
         parent::__construct();
 
-        // Inisialisasi variabel private dengan nilai dari session
-        $this->db_sso = $this->session->userdata('sso_db');
     }
 
     private function add_audittrail($action, $title, $table, $descrip)
@@ -53,180 +51,674 @@ class ModelPresensi extends CI_Model
 
     public function all_pres_pengguna($id)
     {
-        // Subquery to generate the dates for the current month
-        $subquery = "(SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(CONCAT(YEAR(NOW()), '-', MONTH(NOW()), '-', n)), '%Y-%m-%d') AS Date 
-                  FROM (SELECT (((b4.0 << 1 | b3.0) << 1 | b2.0) << 1 | b1.0) << 1 | b0.0 AS n 
-                        FROM (SELECT 0 UNION ALL SELECT 1) AS b0, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b1, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b2, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b3, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b4 ) t 
-                  WHERE n > 0 AND n <= DAY(LAST_DAY(NOW()))
-                  ORDER BY Date)";
+        $id = $this->db->escape($id);
 
-        // Join the subquery with the register_presensi table
-        $this->db->select('DateTable.Date, register_presensi.*')
-            ->from("($subquery) AS DateTable", false)
-            ->join('register_presensi', 'DateTable.Date = DATE(register_presensi.tgl) AND register_presensi.userid = ' . $this->db->escape($id), 'left')
-            ->where('DateTable.Date IS NOT NULL')
-            ->order_by('DateTable.Date');
+        $sql = "
+            WITH RECURSIVE DateTable AS (
+                SELECT DATE_FORMAT(NOW(), '%Y-%m-01') AS Date
+                UNION ALL
+                SELECT Date + INTERVAL 1 DAY
+                FROM DateTable
+                WHERE Date < LAST_DAY(NOW())
+            )
+            SELECT DateTable.Date, r.*
+            FROM DateTable
+            LEFT JOIN register_presensi r 
+                ON DateTable.Date = DATE(r.tgl) 
+                AND r.userid = $id
+            WHERE DateTable.Date IS NOT NULL
+            ORDER BY DateTable.Date
+        ";
 
-        return $this->db->get()->result();
+        return $this->db->query($sql)->result();
     }
 
     public function all_pres_pengguna_bulan($id, $bulan)
     {
-        // Subquery to generate the dates for the given month
-        $subquery = "(SELECT FROM_UNIXTIME(UNIX_TIMESTAMP(CONCAT(YEAR('$bulan'), '-', MONTH('$bulan'), '-', n)), '%Y-%m-%d') AS Date 
-                  FROM (SELECT (((b4.0 << 1 | b3.0) << 1 | b2.0) << 1 | b1.0) << 1 | b0.0 AS n 
-                        FROM (SELECT 0 UNION ALL SELECT 1) AS b0, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b1, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b2, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b3, 
-                             (SELECT 0 UNION ALL SELECT 1) AS b4 ) t 
-                  WHERE n > 0 AND n <= DAY(LAST_DAY('$bulan')) 
-                  ORDER BY Date)";
+        $bulan_date = date('Y-m-01', strtotime($bulan));
 
-        // Join the subquery with the register_presensi table
-        $this->db->select('DateTable.Date, register_presensi.*')
-            ->from("($subquery) AS DateTable", false)
-            ->join('register_presensi', 'DateTable.Date = DATE(register_presensi.tgl) AND register_presensi.userid = ' . $this->db->escape($id), 'left')
-            ->where('DateTable.Date IS NOT NULL')
-            ->order_by('DateTable.Date');
+        $id_esc = $this->db->escape($id);
+        $bulan_esc = $this->db->escape($bulan_date);
 
-        return $this->db->get()->result();
+        $sql = "
+            WITH RECURSIVE DateTable AS (
+                SELECT $bulan_esc AS Date
+                UNION ALL
+                SELECT Date + INTERVAL 1 DAY
+                FROM DateTable
+                WHERE Date < LAST_DAY($bulan_esc)
+            )
+            SELECT DateTable.Date, r.*
+            FROM DateTable
+            LEFT JOIN register_presensi r 
+                ON DateTable.Date = DATE(r.tgl) 
+                AND r.userid = $id_esc
+            WHERE DateTable.Date IS NOT NULL
+            ORDER BY DateTable.Date
+        ";
+
+        return $this->db->query($sql)->result();
     }
 
     public function presensi_harian($jenis, $tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.nip AS nip, u.fullname AS nama, u.jab_id AS jab_id, u.jabatan AS jabatan, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", $jenis)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === $jenis && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $presensi = $this->db
+            ->where('DATE(tgl)', $tgl)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $tgl
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_hakim_now()
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id AS jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = CURDATE()", "left")
-            ->where("u.id_grup", 1)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 1 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = date('Y-m-d');
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $today
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_cakim_now()
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id AS jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = CURDATE()", "left")
-            ->where("u.id_grup", 4)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 4 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = date('Y-m-d');
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $today
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_pns_now()
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id AS jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = CURDATE()", "left")
-            ->where("u.id_grup", 2)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 2 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = date('Y-m-d');
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $today
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_pppk_now()
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id AS jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = CURDATE()", "left")
-            ->where("u.id_grup", 6)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 6 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = date('Y-m-d');
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $today
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_honor_now()
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id AS jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan, CURDATE() AS tgl_now")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = CURDATE()", "left")
-            ->where("u.id_grup", 3)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 3 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = date('Y-m-d');
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'],
+                'tgl_now' => $today
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_hakim_bulan($tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", 1)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 1 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = $this->db->escape($tgl);
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup']
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_cakim_bulan($tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", 4)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 4 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = $this->db->escape($tgl);
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup']
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_pns_bulan($tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", 2)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 2 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = $this->db->escape($tgl);
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup']
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_pppk_bulan($tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", 6)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 6 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = $this->db->escape($tgl);
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup']
+            ];
+        }
+
+        return $result;
     }
 
     public function pres_honor_bulan($tgl)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid AND p.tgl = " . $this->db->escape($tgl), "left")
-            ->where("u.id_grup", 3)
-            ->where("u.status_pegawai", 1)
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users)) {
+            return [];
+        }
+
+        $filtered = [];
+        foreach ($users as $u) {
+            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
+            $status = $u['status_pegawai'] ?? 0;
+
+            if ((int) $id_grup === 3 && (int) $status === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $today = $this->db->escape($tgl);
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $u['status_pegawai'],
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup']
+            ];
+        }
+
+        return $result;
     }
 
     public function all_kegiatan()
@@ -359,32 +851,132 @@ class ModelPresensi extends CI_Model
 
     public function semua_presensi($awal, $akhir)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid", "left")
-            ->where('tgl >=', $awal)
-            ->where('tgl <=', $akhir)
-            ->where("u.status_pegawai", 1)
-            ->order_by("jab_id")
-            ->order_by("fullname")
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users))
+            return [];
+
+        $filtered = [];
+        foreach ($users as $u) {
+            if ((int) ($u['status_pegawai'] ?? 0) === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $user_ids = array_column($filtered, 'userid');
+        if (empty($user_ids))
+            return [];
+
+        $presensi = $this->db
+            ->where('DATE(tgl) >=', date('Y-m-d', strtotime($awal)))
+            ->where('DATE(tgl) <=', date('Y-m-d', strtotime($akhir)))
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = [];
+        foreach ($presensi as $p) {
+            $presensi_map[$p['userid']][] = $p;
+        }
+
+        $result = [];
+        usort($filtered, function ($a, $b) {
+            $jab = (int) ($a['jab_id'] ?? 0) <=> (int) ($b['jab_id'] ?? 0);
+            if ($jab !== 0)
+                return $jab;
+            return strcmp($a['fullname'] ?? '', $b['fullname'] ?? '');
+        });
+
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $list_pres = $presensi_map[$uid] ?? [null];
+
+            foreach ($list_pres as $p) {
+                $result[] = (object) [
+                    'userid' => $uid,
+                    'jab_id' => $u['jab_id'],
+                    'pegawai_id' => $u['pegawai_id'],
+                    'fullname' => $u['fullname'],
+                    'status' => $u['status_pegawai'],
+                    'id_presensi' => $p['id'] ?? null,
+                    'tgl' => $p['tgl'] ?? null,
+                    'masuk' => $p['masuk'] ?? null,
+                    'pulang' => $p['pulang'] ?? null,
+                    'ket' => $p['ket'] ?? null,
+                    'grup_jabatan' => $u['id_grup'] ?? $u['grup_jabatan'] ?? null,
+                ];
+            }
+        }
+
+        $result = array_filter($result, function ($r) {
+            return $r->tgl !== null;
+        });
+
+        return $result;
     }
 
     public function semua_presensi_peg($awal, $akhir, $id)
     {
-        return $this->db
-            ->select("u.userid AS userid, u.jab_id, u.pegawai_id AS pegawai_id, u.fullname AS fullname, u.status_pegawai AS status, p.id AS id_presensi, p.tgl AS tgl, p.masuk AS masuk, p.pulang AS pulang, p.ket AS ket, u.id_grup AS grup_jabatan")
-            ->from($this->db_sso . ".v_users u")
-            ->join("register_presensi p", "u.userid = p.userid", "left")
-            ->where('tgl >=', $awal)
-            ->where('tgl <=', $akhir)
-            ->where('p.userid', $id)
-            ->where("u.status_pegawai", 1)
-            ->order_by("tgl")
-            ->get()
-            ->result();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
+
+        if (empty($users))
+            return [];
+
+        $filtered = [];
+        foreach ($users as $u) {
+            if ((int) ($u['status_pegawai'] ?? 0) === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $presensi = $this->db
+            ->where('DATE(tgl) >=', date('Y-m-d', strtotime($awal)))
+            ->where('DATE(tgl) <=', date('Y-m-d', strtotime($akhir)))
+            ->where('userid', $id)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = [];
+        foreach ($presensi as $p) {
+            $presensi_map[$p['userid']][] = $p;
+        }
+
+        $result = [];
+        usort($filtered, function ($a, $b) {
+            $jab = (int) ($a['jab_id'] ?? 0) <=> (int) ($b['jab_id'] ?? 0);
+            if ($jab !== 0)
+                return $jab;
+            return strcmp($a['fullname'] ?? '', $b['fullname'] ?? '');
+        });
+
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $list_pres = $presensi_map[$uid] ?? [null];
+
+            foreach ($list_pres as $p) {
+                $result[] = (object) [
+                    'userid' => $uid,
+                    'jab_id' => $u['jab_id'],
+                    'pegawai_id' => $u['pegawai_id'],
+                    'fullname' => $u['fullname'],
+                    'status' => $u['status_pegawai'],
+                    'id_presensi' => $p['id'] ?? null,
+                    'tgl' => $p['tgl'] ?? null,
+                    'masuk' => $p['masuk'] ?? null,
+                    'pulang' => $p['pulang'] ?? null,
+                    'ket' => $p['ket'] ?? null,
+                    'grup_jabatan' => $u['id_grup'] ?? $u['grup_jabatan'] ?? null,
+                ];
+            }
+        }
+
+        $result = array_filter($result, function ($r) {
+            return $r->tgl !== null;
+        });
+
+        return $result;
     }
 
     public function register_kegiatan()
@@ -411,33 +1003,139 @@ class ModelPresensi extends CI_Model
 
     public function get_detail_presensi($tgl)
     {
-        $this->db->select('u.nip AS nip, u.fullname AS nama, u.jabatan AS jabatan, TIME(p.created_on) AS waktu');
-        $this->db->where('u.userid = p.userid AND DATE(p.created_on) = "' . $tgl . '"');
-        $this->db->order_by('TIME(p.created_on)', 'ASC');
-        $query = $this->db->get($this->db_sso .'.v_users u, register_presensi_apel p');
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
 
-        return $query->result();
+        if (empty($users))
+            return [];
+
+        $filtered = [];
+        foreach ($users as $u) {
+            if ((int) ($u['status_pegawai'] ?? 0) === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $presensi = $this->db
+            ->where('DATE(created_on)', $tgl)
+            ->order_by('created_on', 'ASC')
+            ->get('register_presensi_apel')
+            ->result_array();
+
+        $presensi_map = [];
+        foreach ($presensi as $p) {
+            $presensi_map[$p['userid']][] = $p;
+        }
+
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $list_pres = $presensi_map[$uid] ?? [null];
+
+            foreach ($list_pres as $p) {
+                if ($p != null) {
+                    $result[] = (object) [
+                        'userid' => $uid,
+                        'nip' => $u['nip'],
+                        'jabatan' => $u['jabatan'],
+                        'nama' => $u['fullname'],
+                        'waktu' => date('H:i:s', strtotime($p['created_on'])),
+                    ];
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function get_detail_presensi_kegiatan($id)
     {
-        $this->db->select('u.nip AS nip, u.fullname AS nama, u.jabatan AS jabatan, TIME(l.created_on) AS waktu');
-        $this->db->where('u.userid = l.userid AND l.idkegiatan = "' . $id . '"');
-        $this->db->order_by('TIME(l.created_on)', 'ASC');
-        $query = $this->db->get($this->db_sso .'.v_users u, register_presensi_lainnya l');
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
 
-        return $query->result();
+        if (empty($users))
+            return [];
+
+        $filtered = [];
+        foreach ($users as $u) {
+            if ((int) ($u['status_pegawai'] ?? 0) === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $presensi = $this->db
+            ->where('idkegiatan', $id)
+            ->order_by('created_on', 'ASC')
+            ->get('register_presensi_apel')
+            ->result_array();
+
+        $presensi_map = [];
+        foreach ($presensi as $p) {
+            $presensi_map[$p['userid']][] = $p;
+        }
+
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $list_pres = $presensi_map[$uid] ?? [null];
+
+            foreach ($list_pres as $p) {
+                if ($p != null) {
+                    $result[] = (object) [
+                        'userid' => $uid,
+                        'nip' => $u['nip'],
+                        'jabatan' => $u['jabatan'],
+                        'nama' => $u['fullname'],
+                        'waktu' => date('H:i:s', strtotime($p['created_on'])),
+                    ];
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function get_data_peran()
     {
-        $this->db->select('l.id AS id, u.userid AS userid, u.fullname AS nama, l.role AS peran, l.hapus AS hapus');
-        $this->db->from('role_presensi l');
-        $this->db->join($this->db_sso . '.v_users u', 'l.userid = u.userid', 'left');
-        $this->db->order_by('l.id', 'ASC');
-        $query = $this->db->get();
+        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+        $users = $api['response']['data'] ?? $api['data'] ?? [];
 
-        return $query->result();
+        if (empty($users))
+            return [];
+
+        $filtered = [];
+        foreach ($users as $u) {
+            if ((int) ($u['status_pegawai'] ?? 0) === 1) {
+                $filtered[] = $u;
+            }
+        }
+
+        $role = $this->db
+            ->order_by('id', 'ASC')
+            ->get('role_presensi')
+            ->result_array();
+
+        $role_map = [];
+        foreach ($role as $r) {
+            $role_map[$r['userid']][] = $r;
+        }
+
+        foreach ($filtered as $u) {
+            $uid = $u['userid'];
+            $list_pres = $role_map[$uid] ?? [null];
+
+            foreach ($list_pres as $p) {
+                if ($p != null) {
+                    $result[] = (object) [
+                        'id' => $r['id'],
+                        'userid' => $uid,
+                        'nama' => $u['fullname'],
+                        'peran' => $r['role'],
+                        'hapus' => $r['hapus']
+                    ];
+                }
+            }
+        }
+
+        return $result;
     }
 
     public function get_pres_pengguna($id)
