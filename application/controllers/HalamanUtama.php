@@ -957,7 +957,7 @@ class HalamanUtama extends MY_Controller
     public function simpan_presensi_kegiatan()
     {
         $this->form_validation->set_rules('kegiatan', 'Kegiatan', 'trim|required');
-        $this->form_validation->set_message('required', '%s Belum Dipilih');
+        $this->form_validation->set_message(['required' => '%s Belum Dipilih']);
 
         if ($this->form_validation->run() == FALSE) {
             //echo json_encode(array('st' => 0, 'msg' => 'Tidak Berhasil:<br/>'.validation_errors()));
