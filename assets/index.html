@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>403 — Akses Ditolak</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  body{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:#0a0e17;
+    color:#e2e8f0;
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* grid latar */
+  body::before{
+    content:'';
+    position:fixed;inset:0;
+    background-image:
+      linear-gradient(rgba(99,102,241,.06) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(99,102,241,.06) 1px,transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse 70% 70% at 50% 50%,#000 40%,transparent 100%);
+    -webkit-mask-image:radial-gradient(ellipse 70% 70% at 50% 50%,#000 40%,transparent 100%);
+  }
+
+  /* ornamen glowing */
+  .glow{
+    position:fixed;border-radius:50%;filter:blur(110px);
+    pointer-events:none;opacity:.45;
+  }
+  .glow-a{width:480px;height:480px;top:-120px;left:-100px;background:#4f46e5}
+  .glow-b{width:420px;height:420px;bottom:-140px;right:-80px;background:#0e7490}
+
+  .card{
+    position:relative;
+    width:min(560px,calc(100% - 40px));
+    text-align:center;
+    padding:64px 48px 56px;
+    background:rgba(15,20,35,.72);
+    border:1px solid rgba(99,102,241,.25);
+    border-radius:24px;
+    backdrop-filter:blur(24px);
+    -webkit-backdrop-filter:blur(24px);
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,.03) inset,
+      0 30px 80px -20px rgba(0,0,0,.7);
+    animation:rise .8s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes rise{
+    from{opacity:0;transform:translateY(28px) scale(.97)}
+    to{opacity:1;transform:translateY(0) scale(1)}
+  }
+
+  /* ikonis gembok */
+  .lock-wrap{
+    width:104px;height:104px;margin:0 auto 32px;
+    position:relative;
+    animation:pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{transform:scale(1)}
+    50%{transform:scale(1.06)}
+  }
+  .lock-ring{
+    position:absolute;inset:0;border-radius:50%;
+    border:2px solid rgba(99,102,241,.5);
+    animation:ring-rotate 8s linear infinite;
+  }
+  .lock-ring::before{
+    content:'';position:absolute;
+    width:8px;height:8px;border-radius:50%;
+    background:#818cf8;top:-4px;left:50%;
+    transform:translateX(-50%);
+    box-shadow:0 0 12px 2px rgba(129,140,248,.8);
+  }
+  @keyframes ring-rotate{to{transform:rotate(360deg)}}
+  .lock-body{
+    position:absolute;inset:22px;
+    background:linear-gradient(160deg,#312e81,#1e1b4b);
+    border-radius:20px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 8px 24px rgba(79,70,229,.35);
+  }
+  .lock-body svg{width:44px;height:44px;stroke:#a5b4fc}
+
+  .code{
+    font-size:clamp(64px,12vw,88px);
+    font-weight:800;
+    letter-spacing:4px;
+    line-height:1;
+    background:linear-gradient(135deg,#818cf8 0%,#38bdf8 60%,#22d3ee 100%);
+    -webkit-background-clip:text;background-clip:text;
+    color:transparent;
+    margin-bottom:10px;
+  }
+  .title{
+    font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:12px;
+  }
+  .desc{
+    font-size:14.5px;line-height:1.8;color:#94a3b8;
+    max-width:380px;margin:0 auto 36px;
+  }
+  .desc strong{color:#c7d2fe;font-weight:600}
+
+  .btn{
+    display:inline-block;
+    padding:13px 34px;
+    font-size:14px;font-weight:600;letter-spacing:.5px;
+    color:#e0e7ff;
+    background:linear-gradient(135deg,#4f46e5,#4338ca);
+    border:1px solid rgba(129,140,248,.4);
+    border-radius:12px;
+    text-decoration:none;
+    transition:all .25s ease;
+    box-shadow:0 6px 20px -6px rgba(79,70,229,.55);
+  }
+  .btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 28px -6px rgba(79,70,229,.7);
+    background:linear-gradient(135deg,#6366f1,#4f46e5);
+  }
+
+  .hint{
+    margin-top:28px;font-size:12px;color:#475569;letter-spacing:.4px;
+  }
+  .hint code{
+    background:rgba(99,102,241,.12);
+    color:#818cf8;
+    padding:2px 8px;border-radius:6px;
+    font-family:Consolas,'Courier New',monospace;font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="glow glow-a"></div>
+<div class="glow glow-b"></div>
+
+<div class="card">
+  <div class="lock-wrap">
+    <div class="lock-ring"></div>
+    <div class="lock-body">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="11" width="14" height="9" rx="2.5"/>
+        <path d="M8 11V7a4 4 0 1 1 8 0v4"/>
+        <circle cx="12" cy="15.5" r="1.4" fill="#a5b4fc" stroke="none"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="code">403</div>
+  <div class="title">Akses Ditolak</div>
+  <p class="desc">
+    Direktori ini tidak dapat diakses secara langsung oleh keamanan server.
+    Jika Anda melihat halaman ini, mungkin Anda mencoba membuka alamat
+    <strong>yang tidak seharusnya dipublikasikan</strong>.
+  </p>
+
+  <a class="btn" href="../">← Kembali ke Beranda</a>
+
+</div>
+
+</body>
+</html>
