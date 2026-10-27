@@ -278,8 +278,10 @@ if (!isset($view_folder[0]) && is_dir(APPPATH . 'views' . DIRECTORY_SEPARATOR)) 
 
 define('VIEWPATH', $view_folder . DIRECTORY_SEPARATOR);
 
+// Muat .env sebelum CI bootstrapping
 require_once __DIR__ . '/application/helpers/env_helper.php';
 load_env();
+
 /*
  * --------------------------------------------------------------------
  * LOAD THE BOOTSTRAP FILE

@@ -16,108 +16,9 @@ class HalamanUtama extends MY_Controller
         #die(var_dump($this->session->all_userdata()));
         $peran = $this->session->userdata('peran');
         $userid = $this->session->userdata('userid');
-        
+
         $data['page'] = 'dashboard';
         $data['peran'] = $peran;
-        
-        // Data presensi pribadi hari ini
-        $data['presensi_hari_ini'] = $this->model->get_presensi_pengguna_hari_ini($userid);
-        $data['presensi_apel_hari_ini'] = $this->model->get_presensi_apel($userid);
-        
-        // Data presensi bulan ini untuk user
-        $data['presensi_bulan_ini'] = $this->model->all_pres_pengguna($userid);
-        
-        // Ambil data tanggal merah dari Seudati
-        $tanggal_merah = $this->apihelper->get_all_tanggal_merah();
-        
-        // Hitung statistik bulan ini (hanya hari kerja Senin-Jumat, bukan tanggal merah)
-        $total_hari = 0;
-        $sudah_presensi = 0;
-        $belum_presensi = 0;
-        $hari_ini = date('Y-m-d');
-        $bulan_ini = date('Y-m');
-        
-        foreach ($data['presensi_bulan_ini'] as $presensi) {
-            if ($presensi->Date <= $hari_ini) {
-                // Cek apakah hari kerja (Senin=1 sampai Jumat=5)
-                $day_of_week = date('N', strtotime($presensi->Date));
-                if ($day_of_week >= 1 && $day_of_week <= 5) {
-                    // Cek apakah bukan tanggal merah
-                    if (!in_array($presensi->Date, $tanggal_merah)) {
-                        $total_hari++;
-                        if ($presensi->id) {
-                            $sudah_presensi++;
-                        } else {
-                            $belum_presensi++;
-                        }
-                    }
-                }
-            }
-        }
-        
-        $data['statistik_bulan'] = [
-            'total_hari' => $total_hari,
-            'sudah_presensi' => $sudah_presensi,
-            'belum_presensi' => $belum_presensi,
-            'persentase' => $total_hari > 0 ? round(($sudah_presensi / $total_hari) * 100, 1) : 0
-        ];
-        
-        // Inisialisasi statistik hari ini untuk semua user
-        $data['statistik_hari_ini'] = [
-            'total_pegawai' => 0,
-            'sudah_presensi' => 0,
-            'belum_presensi' => 0,
-            'persentase' => 0
-        ];
-        $data['presensi_terbaru'] = [];
-        
-        // Data untuk admin/operator
-        if (in_array($peran, ['admin', 'operator'])) {
-            // Statistik presensi hari ini
-            $hakim = $this->model->pres_hakim_now();
-            $cakim = $this->model->pres_cakim_now();
-            $pns = $this->model->pres_pns_now();
-            $pppk = $this->model->pres_pppk_now();
-            $honor = $this->model->pres_honor_now();
-            
-            $total_pegawai = count($hakim) + count($cakim) + count($pns) + count($pppk) + count($honor);
-            $sudah_presensi_hari_ini = 0;
-            $belum_presensi_hari_ini = 0;
-            
-            foreach ([$hakim, $cakim, $pns, $pppk, $honor] as $group) {
-                foreach ($group as $pegawai) {
-                    if ($pegawai->id_presensi && $pegawai->masuk) {
-                        $sudah_presensi_hari_ini++;
-                    } else {
-                        $belum_presensi_hari_ini++;
-                    }
-                }
-            }
-            
-            $data['statistik_hari_ini'] = [
-                'total_pegawai' => $total_pegawai,
-                'sudah_presensi' => $sudah_presensi_hari_ini,
-                'belum_presensi' => $belum_presensi_hari_ini,
-                'persentase' => $total_pegawai > 0 ? round(($sudah_presensi_hari_ini / $total_pegawai) * 100, 1) : 0
-            ];
-            
-            // Presensi terbaru (5 terakhir) - menggunakan data dari presensi hari ini
-            $all_presensi = array_merge($hakim, $cakim, $pns, $pppk, $honor);
-            // Filter hanya yang sudah presensi masuk
-            $presensi_masuk = array_filter($all_presensi, function($p) {
-                return isset($p->masuk) && $p->masuk != null;
-            });
-            // Sort berdasarkan waktu masuk terbaru
-            usort($presensi_masuk, function($a, $b) {
-                return strcmp($b->masuk, $a->masuk);
-            });
-            // Ambil 5 teratas
-            $data['presensi_terbaru'] = array_slice($presensi_masuk, 0, 5);
-        }
-        
-        // Kegiatan mendatang
-        $query_kegiatan = $this->model->get_list_kegiatan_lain(date('Y-m-d'));
-        $data['kegiatan_mendatang'] = $query_kegiatan->result();
 
         $this->load->view('layout', $data);
     }
@@ -164,51 +65,60 @@ class HalamanUtama extends MY_Controller
             }
 
             if ($halaman == 'dashboard') {
-                // Load data dashboard sama seperti method index()
                 $userid = $this->session->userdata('userid');
-                
-                // Data presensi pribadi hari ini
+                $hari_ini = date('Y-m-d');
+
+                // --- CACHE tanggal merah ---
+                $this->load->driver('cache', ['adapter' => 'file']);
+                $cache_key_merah = 'tanggal_merah_bulan_' . date('Y-m');
+                $tanggal_merah = $this->cache->get($cache_key_merah);
+
+                if ($tanggal_merah === FALSE) {
+                    $tanggal_merah = $this->apihelper->get_all_tanggal_merah() ?: [];
+                    $this->cache->save($cache_key_merah, $tanggal_merah, 86400);
+                }
+                $tanggal_merah_flip = array_flip($tanggal_merah);
+
+                // --- Data pribadi ---
                 $data['presensi_hari_ini'] = $this->model->get_presensi_pengguna_hari_ini($userid);
                 $data['presensi_apel_hari_ini'] = $this->model->get_presensi_apel($userid);
-                
-                // Data presensi bulan ini untuk user
                 $data['presensi_bulan_ini'] = $this->model->all_pres_pengguna($userid);
-                
-                // Ambil data tanggal merah dari Seudati
-                $tanggal_merah = $this->apihelper->get_all_tanggal_merah();
-                
-                // Hitung statistik bulan ini (hanya hari kerja Senin-Jumat, bukan tanggal merah)
+
+                // --- Hitung statistik bulan (Senin-Jumat, bukan tgl merah) ---
                 $total_hari = 0;
                 $sudah_presensi = 0;
                 $belum_presensi = 0;
-                $hari_ini = date('Y-m-d');
-                
+
                 foreach ($data['presensi_bulan_ini'] as $presensi) {
-                    if ($presensi->Date <= $hari_ini) {
-                        // Cek apakah hari kerja (Senin=1 sampai Jumat=5)
-                        $day_of_week = date('N', strtotime($presensi->Date));
-                        if ($day_of_week >= 1 && $day_of_week <= 5) {
-                            // Cek apakah bukan tanggal merah
-                            if (!in_array($presensi->Date, $tanggal_merah)) {
-                                $total_hari++;
-                                if ($presensi->id) {
-                                    $sudah_presensi++;
-                                } else {
-                                    $belum_presensi++;
-                                }
-                            }
-                        }
+                    if ($presensi->Date > $hari_ini) {
+                        continue;
+                    }
+
+                    $dow = date('N', strtotime($presensi->Date));
+                    if ($dow > 5) {
+                        continue; // Sabtu Minggu skip
+                    }
+
+                    if (isset($tanggal_merah_flip[$presensi->Date])) {
+                        continue; // Tanggal merah skip
+                    }
+
+                    $total_hari++;
+                    if (!empty($presensi->id)) {
+                        $sudah_presensi++;
+                    } else {
+                        $belum_presensi++;
                     }
                 }
-                
+
                 $data['statistik_bulan'] = [
                     'total_hari' => $total_hari,
                     'sudah_presensi' => $sudah_presensi,
                     'belum_presensi' => $belum_presensi,
                     'persentase' => $total_hari > 0 ? round(($sudah_presensi / $total_hari) * 100, 1) : 0
                 ];
-                
-                // Inisialisasi statistik hari ini untuk semua user
+
+                // --- Default untuk non-admin ---
                 $data['statistik_hari_ini'] = [
                     'total_pegawai' => 0,
                     'sudah_presensi' => 0,
@@ -216,53 +126,36 @@ class HalamanUtama extends MY_Controller
                     'persentase' => 0
                 ];
                 $data['presensi_terbaru'] = [];
-                
-                // Data untuk admin/operator
+
+                // --- ADMIN / OPERATOR - Versi OPTIMIZED (1 query, bukan 5) ---
                 if (in_array($peran, ['admin', 'operator'])) {
-                    // Statistik presensi hari ini
-                    $hakim = $this->model->pres_hakim_now();
-                    $cakim = $this->model->pres_cakim_now();
-                    $pns = $this->model->pres_pns_now();
-                    $pppk = $this->model->pres_pppk_now();
-                    $honor = $this->model->pres_honor_now();
-                    
-                    $total_pegawai = count($hakim) + count($cakim) + count($pns) + count($pppk) + count($honor);
+                    // Pakai method baru yang sudah di-cache (jangan pakai 5 method lama)
+                    $all_pegawai = $this->model->get_all_presensi_today_optimized();
+
+                    $total_pegawai = count($all_pegawai);
                     $sudah_presensi_hari_ini = 0;
-                    $belum_presensi_hari_ini = 0;
-                    
-                    foreach ([$hakim, $cakim, $pns, $pppk, $honor] as $group) {
-                        foreach ($group as $pegawai) {
-                            if ($pegawai->id_presensi && $pegawai->masuk) {
-                                $sudah_presensi_hari_ini++;
-                            } else {
-                                $belum_presensi_hari_ini++;
-                            }
+
+                    foreach ($all_pegawai as $pegawai) {
+                        if (!empty($pegawai->id_presensi) && !empty($pegawai->masuk)) {
+                            $sudah_presensi_hari_ini++;
                         }
                     }
-                    
+
+                    $belum_presensi_hari_ini = $total_pegawai - $sudah_presensi_hari_ini;
+
                     $data['statistik_hari_ini'] = [
                         'total_pegawai' => $total_pegawai,
                         'sudah_presensi' => $sudah_presensi_hari_ini,
                         'belum_presensi' => $belum_presensi_hari_ini,
                         'persentase' => $total_pegawai > 0 ? round(($sudah_presensi_hari_ini / $total_pegawai) * 100, 1) : 0
                     ];
-                    
-                    // Presensi terbaru (5 terakhir) - menggunakan data dari presensi hari ini
-                    $all_presensi = array_merge($hakim, $cakim, $pns, $pppk, $honor);
-                    // Filter hanya yang sudah presensi masuk
-                    $presensi_masuk = array_filter($all_presensi, function($p) {
-                        return isset($p->masuk) && $p->masuk != null;
-                    });
-                    // Sort berdasarkan waktu masuk terbaru
-                    usort($presensi_masuk, function($a, $b) {
-                        return strcmp($b->masuk, $a->masuk);
-                    });
-                    // Ambil 5 teratas
-                    $data['presensi_terbaru'] = array_slice($presensi_masuk, 0, 5);
+
+                    // Presensi terbaru 5 - sudah di-sort di model
+                    $data['presensi_terbaru'] = $this->model->get_presensi_terbaru_today(5);
                 }
-                
-                // Kegiatan mendatang
-                $query_kegiatan = $this->model->get_list_kegiatan_lain(date('Y-m-d'));
+
+                // --- Kegiatan mendatang ---
+                $query_kegiatan = $this->model->get_list_kegiatan_lain($hari_ini);
                 $data['kegiatan_mendatang'] = $query_kegiatan->result();
             } elseif ($halaman == 'laporan_harian') {
                 $data['presensi'] = $this->model->all_pres_pengguna($this->session->userdata("userid"));

@@ -156,289 +156,114 @@ class ModelPresensi extends CI_Model
         return $result;
     }
 
+    private function get_users_aktif_cached()
+    {
+        $this->load->driver('cache', ['adapter' => 'file']);
+        $cache_key = 'sso_users_aktif_' . date('Y-m-d');
+
+        $users = $this->cache->get($cache_key);
+        if ($users === FALSE) {
+            $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
+            $users = $api['response']['data'] ?? $api['data'] ?? [];
+            // Cache 6 jam, jangan hit Seudati terus
+            $this->cache->save($cache_key, $users, 21600);
+        }
+        return $users;
+    }
+
+    public function get_all_presensi_today_optimized()
+    {
+        $users = $this->get_users_aktif_cached();
+        if (empty($users))
+            return [];
+
+        // Group mapping biar 1x loop
+        // 1=hakim, 2=cakim, 3=pns, 4=pppk, 5=honor - sesuaikan sama seudati lu
+        $today = date('Y-m-d');
+        $user_ids = array_column($users, 'userid');
+
+        // 1 QUERY PRESENSI AJA UNTUK SEMUA
+        $presensi = $this->db
+            ->where('DATE(tgl)', $today)
+            ->where_in('userid', $user_ids)
+            ->get('register_presensi')
+            ->result_array();
+
+        $presensi_map = array_column($presensi, null, 'userid');
+
+        $result = [];
+        foreach ($users as $u) {
+            $status = (int) ($u['status_pegawai'] ?? 0);
+            if ($status !== 1)
+                continue; // cuma yang aktif
+
+            $uid = $u['userid'];
+            $p = $presensi_map[$uid] ?? [];
+
+            $result[] = (object) [
+                'userid' => $uid,
+                'jab_id' => $u['jab_id'],
+                'jabatan' => $u['jabatan'],
+                'pegawai_id' => $u['pegawai_id'],
+                'fullname' => $u['fullname'],
+                'status' => $status,
+                'id_presensi' => $p['id'] ?? null,
+                'tgl' => $p['tgl'] ?? null,
+                'masuk' => $p['masuk'] ?? null,
+                'pulang' => $p['pulang'] ?? null,
+                'ket' => $p['ket'] ?? null,
+                'grup_jabatan' => $u['id_grup'] ?? $u['grup_jabatan'],
+                'id_grup' => (int) ($u['id_grup'] ?? $u['grup_jabatan']),
+                'tgl_now' => $today
+            ];
+        }
+        return $result;
+    }
+
+    public function get_presensi_terbaru_today($limit = 5)
+    {
+        $all = $this->get_all_presensi_today_optimized();
+
+        $masuk = array_filter($all, function ($p) {
+            return !empty($p->masuk);
+        });
+
+        usort($masuk, function ($a, $b) {
+            return strcmp($b->masuk, $a->masuk);
+        });
+
+        return array_slice($masuk, 0, $limit);
+    }
+
     public function pres_hakim_now()
     {
-        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
-        $users = $api['response']['data'] ?? $api['data'] ?? [];
-
-        if (empty($users)) {
-            return [];
-        }
-
-        $filtered = [];
-        foreach ($users as $u) {
-            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
-            $status = $u['status_pegawai'] ?? 0;
-
-            if ((int) $id_grup === 1 && (int) $status === 1) {
-                $filtered[] = $u;
-            }
-        }
-
-        $user_ids = array_column($filtered, 'userid');
-        if (empty($user_ids))
-            return [];
-
-        $today = date('Y-m-d');
-        $presensi = $this->db
-            ->where('DATE(tgl)', $today)
-            ->where_in('userid', $user_ids)
-            ->get('register_presensi')
-            ->result_array();
-
-        $presensi_map = array_column($presensi, null, 'userid');
-
-        $result = [];
-        foreach ($filtered as $u) {
-            $uid = $u['userid'];
-            $p = $presensi_map[$uid] ?? [];
-
-            $result[] = (object) [
-                'userid' => $uid,
-                'jab_id' => $u['jab_id'],
-                'jabatan' => $u['jabatan'],
-                'pegawai_id' => $u['pegawai_id'],
-                'fullname' => $u['fullname'],
-                'status' => $u['status_pegawai'],
-                'id_presensi' => $p['id'] ?? null,
-                'tgl' => $p['tgl'] ?? null,
-                'masuk' => $p['masuk'] ?? null,
-                'pulang' => $p['pulang'] ?? null,
-                'ket' => $p['ket'] ?? null,
-                'grup_jabatan' => $u['id_grup'],
-                'tgl_now' => $today
-            ];
-        }
-
-        return $result;
+        $all = $this->get_all_presensi_today_optimized();
+        return array_filter($all, function ($x) {
+            return $x->id_grup === 1; });
     }
-
-    public function pres_cakim_now()
-    {
-        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
-        $users = $api['response']['data'] ?? $api['data'] ?? [];
-
-        if (empty($users)) {
-            return [];
-        }
-
-        $filtered = [];
-        foreach ($users as $u) {
-            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
-            $status = $u['status_pegawai'] ?? 0;
-
-            if ((int) $id_grup === 4 && (int) $status === 1) {
-                $filtered[] = $u;
-            }
-        }
-
-        $user_ids = array_column($filtered, 'userid');
-        if (empty($user_ids))
-            return [];
-
-        $today = date('Y-m-d');
-        $presensi = $this->db
-            ->where('DATE(tgl)', $today)
-            ->where_in('userid', $user_ids)
-            ->get('register_presensi')
-            ->result_array();
-
-        $presensi_map = array_column($presensi, null, 'userid');
-
-        $result = [];
-        foreach ($filtered as $u) {
-            $uid = $u['userid'];
-            $p = $presensi_map[$uid] ?? [];
-
-            $result[] = (object) [
-                'userid' => $uid,
-                'jab_id' => $u['jab_id'],
-                'jabatan' => $u['jabatan'],
-                'pegawai_id' => $u['pegawai_id'],
-                'fullname' => $u['fullname'],
-                'status' => $u['status_pegawai'],
-                'id_presensi' => $p['id'] ?? null,
-                'tgl' => $p['tgl'] ?? null,
-                'masuk' => $p['masuk'] ?? null,
-                'pulang' => $p['pulang'] ?? null,
-                'ket' => $p['ket'] ?? null,
-                'grup_jabatan' => $u['id_grup'],
-                'tgl_now' => $today
-            ];
-        }
-
-        return $result;
-    }
-
     public function pres_pns_now()
     {
-        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
-        $users = $api['response']['data'] ?? $api['data'] ?? [];
-
-        if (empty($users)) {
-            return [];
-        }
-
-        $filtered = [];
-        foreach ($users as $u) {
-            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
-            $status = $u['status_pegawai'] ?? 0;
-
-            if ((int) $id_grup === 2 && (int) $status === 1) {
-                $filtered[] = $u;
-            }
-        }
-
-        $user_ids = array_column($filtered, 'userid');
-        if (empty($user_ids))
-            return [];
-
-        $today = date('Y-m-d');
-        $presensi = $this->db
-            ->where('DATE(tgl)', $today)
-            ->where_in('userid', $user_ids)
-            ->get('register_presensi')
-            ->result_array();
-
-        $presensi_map = array_column($presensi, null, 'userid');
-
-        $result = [];
-        foreach ($filtered as $u) {
-            $uid = $u['userid'];
-            $p = $presensi_map[$uid] ?? [];
-
-            $result[] = (object) [
-                'userid' => $uid,
-                'jab_id' => $u['jab_id'],
-                'jabatan' => $u['jabatan'],
-                'pegawai_id' => $u['pegawai_id'],
-                'fullname' => $u['fullname'],
-                'status' => $u['status_pegawai'],
-                'id_presensi' => $p['id'] ?? null,
-                'tgl' => $p['tgl'] ?? null,
-                'masuk' => $p['masuk'] ?? null,
-                'pulang' => $p['pulang'] ?? null,
-                'ket' => $p['ket'] ?? null,
-                'grup_jabatan' => $u['id_grup'],
-                'tgl_now' => $today
-            ];
-        }
-
-        return $result;
+        $all = $this->get_all_presensi_today_optimized();
+        return array_filter($all, function ($x) {
+            return $x->id_grup === 2; });
     }
-
-    public function pres_pppk_now()
-    {
-        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
-        $users = $api['response']['data'] ?? $api['data'] ?? [];
-
-        if (empty($users)) {
-            return [];
-        }
-
-        $filtered = [];
-        foreach ($users as $u) {
-            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
-            $status = $u['status_pegawai'] ?? 0;
-
-            if ((int) $id_grup === 6 && (int) $status === 1) {
-                $filtered[] = $u;
-            }
-        }
-
-        $user_ids = array_column($filtered, 'userid');
-        if (empty($user_ids))
-            return [];
-
-        $today = date('Y-m-d');
-        $presensi = $this->db
-            ->where('DATE(tgl)', $today)
-            ->where_in('userid', $user_ids)
-            ->get('register_presensi')
-            ->result_array();
-
-        $presensi_map = array_column($presensi, null, 'userid');
-
-        $result = [];
-        foreach ($filtered as $u) {
-            $uid = $u['userid'];
-            $p = $presensi_map[$uid] ?? [];
-
-            $result[] = (object) [
-                'userid' => $uid,
-                'jab_id' => $u['jab_id'],
-                'jabatan' => $u['jabatan'],
-                'pegawai_id' => $u['pegawai_id'],
-                'fullname' => $u['fullname'],
-                'status' => $u['status_pegawai'],
-                'id_presensi' => $p['id'] ?? null,
-                'tgl' => $p['tgl'] ?? null,
-                'masuk' => $p['masuk'] ?? null,
-                'pulang' => $p['pulang'] ?? null,
-                'ket' => $p['ket'] ?? null,
-                'grup_jabatan' => $u['id_grup'],
-                'tgl_now' => $today
-            ];
-        }
-
-        return $result;
-    }
-
     public function pres_honor_now()
     {
-        $api = $this->apihelper->get('apiclient/get_semua_user_aktif');
-        $users = $api['response']['data'] ?? $api['data'] ?? [];
-
-        if (empty($users)) {
-            return [];
-        }
-
-        $filtered = [];
-        foreach ($users as $u) {
-            $id_grup = $u['id_grup'] ?? $u['grup_jabatan'] ?? null;
-            $status = $u['status_pegawai'] ?? 0;
-
-            if ((int) $id_grup === 3 && (int) $status === 1) {
-                $filtered[] = $u;
-            }
-        }
-
-        $user_ids = array_column($filtered, 'userid');
-        if (empty($user_ids))
-            return [];
-
-        $today = date('Y-m-d');
-        $presensi = $this->db
-            ->where('DATE(tgl)', $today)
-            ->where_in('userid', $user_ids)
-            ->get('register_presensi')
-            ->result_array();
-
-        $presensi_map = array_column($presensi, null, 'userid');
-
-        $result = [];
-        foreach ($filtered as $u) {
-            $uid = $u['userid'];
-            $p = $presensi_map[$uid] ?? [];
-
-            $result[] = (object) [
-                'userid' => $uid,
-                'jab_id' => $u['jab_id'],
-                'jabatan' => $u['jabatan'],
-                'pegawai_id' => $u['pegawai_id'],
-                'fullname' => $u['fullname'],
-                'status' => $u['status_pegawai'],
-                'id_presensi' => $p['id'] ?? null,
-                'tgl' => $p['tgl'] ?? null,
-                'masuk' => $p['masuk'] ?? null,
-                'pulang' => $p['pulang'] ?? null,
-                'ket' => $p['ket'] ?? null,
-                'grup_jabatan' => $u['id_grup'],
-                'tgl_now' => $today
-            ];
-        }
-
-        return $result;
+        $all = $this->get_all_presensi_today_optimized();
+        return array_filter($all, function ($x) {
+            return $x->id_grup === 3; });
+    }
+    public function pres_cakim_now()
+    {
+        $all = $this->get_all_presensi_today_optimized();
+        return array_filter($all, function ($x) {
+            return $x->id_grup === 4; });
+    }
+    public function pres_pppk_now()
+    {
+        $all = $this->get_all_presensi_today_optimized();
+        return array_filter($all, function ($x) {
+            return $x->id_grup === 6; });
     }
 
     public function pres_hakim_bulan($tgl)
