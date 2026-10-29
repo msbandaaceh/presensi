@@ -3,7 +3,7 @@
 /**
  * @property CI_Config $config
  * @property CI_Input $input
- * @property CI_Model $model
+ * @property ModelPresensi $model
  * @property CI_Model $api
  * @property CI_Encryption $encryption
  * @property CI_Session $session
@@ -36,9 +36,10 @@ class MY_Controller extends CI_Controller
         }
 
         # Cek kegiatan hari ini
-        $queryKegiatan = $this->model->get_seleksi('ref_kegiatan', 'tanggal', date('Y-m-d'));
-        if ($queryKegiatan->num_rows() > 0) {
-            $this->session->set_userdata('agenda_lainnya', '1');
+        if (!$this->session->userdata('agenda_checked')) {
+            $queryKegiatan = $this->model->get_seleksi('ref_kegiatan', 'tanggal', date('Y-m-d'));
+            $this->session->set_userdata('agenda_lainnya', $queryKegiatan->num_rows() > 0 ? '1' : '0');
+            $this->session->set_userdata('agenda_checked', time());
         }
 
         # Cek Data Aplikasi Ini
@@ -65,29 +66,56 @@ class MY_Controller extends CI_Controller
             }
         }
 
-        #Cek peran pegawai
-        if (in_array($this->session->userdata('role'), ['super', 'validator_kepeg_satker', 'admin_satker'])) {
-            $this->session->set_userdata('peran', 'admin');
-        } else {
-            $query = $this->model->get_seleksi2('role_presensi', 'userid', $this->session->userdata('userid'), 'hapus', '0');
-            if ($query->num_rows() > 0) {
-                $this->session->set_userdata('peran', $query->row()->role);
+        // 2. Ambil user & config CUKUP 1X, jangan 10x
+        if (!$this->session->userdata('sys_config_loaded')) {
+            // a. Ambil v_users sekali
+            if (!$this->session->userdata('status_plh') && !$this->session->userdata('status_plt')) {
+                $params = [
+                    'tabel' => 'v_users',
+                    'kolom_seleksi' => 'userid',
+                    'seleksi' => $this->session->userdata("userid")
+                ];
+                $result = $this->apihelper->get('apiclient/get_data_seleksi', $params);
+                if ($result['status_code'] === 200 && $result['response']['status'] === 'success') {
+                    $user_data = $result['response']['data'][0];
+                    $this->session->set_userdata('jabatan', $user_data['jabatan']);
+                    $this->session->set_userdata('pegawai_id', $user_data['pegawai_id']);
+                    $this->session->set_userdata('token_now', $user_data['token']);
+                }
             } else {
-                $this->session->set_userdata('peran', '');
+                $this->session->set_userdata('token_now', $token_presensi);
             }
+
+            // b. Ambil SEMUA sys_config SEKALI JALAN, bukan 9x
+            $params = ['tabel' => 'sys_config'];
+            $resConfig = $this->apihelper->get('apiclient/get_data_tabel', $params);
+            if ($resConfig['status_code'] === 200 && $resConfig['response']['status'] === 'success') {
+                $map = array_column($resConfig['response']['data'], 'value', 'id');
+                
+                $this->session->set_userdata([
+                    'ip_satker' => $map['34'],
+                    'mulai_apel_senin' => $map['30'],
+                    'selesai_apel_senin' => $map['31'],
+                    'mulai_apel_jumat' => $map['32'],
+                    'selesai_apel_jumat' => $map['33'],
+                    'mulai_istirahat' => $map['35'],
+                    'selesai_istirahat' => $map['36'],
+                    'mulai_istirahat_jumat' => $map['37'],
+                    'selesai_istirahat_jumat' => $map['38'],
+                ]);
+            }
+            $this->session->set_userdata('sys_config_loaded', true);
         }
 
-        $this->session->set_userdata('token_now', $token_presensi);
-        $this->session->set_userdata('ip_satker', $this->get_config_value('34'));
-        $this->session->set_userdata('mulai_apel_senin', $this->get_config_value('30'));
-        $this->session->set_userdata('selesai_apel_senin', $this->get_config_value('31'));
-        $this->session->set_userdata('mulai_apel_jumat', $this->get_config_value('32'));
-        $this->session->set_userdata('selesai_apel_jumat', $this->get_config_value('33'));
-        $this->session->set_userdata('mulai_istirahat', $this->get_config_value('35'));
-        $this->session->set_userdata('selesai_istirahat', $this->get_config_value('36'));
-        $this->session->set_userdata('mulai_istirahat_jumat', $this->get_config_value('37'));
-        $this->session->set_userdata('selesai_istirahat_jumat', $this->get_config_value('38'));
-        $this->session->set_userdata('logged_in', TRUE);
+        // Peran, cek kalau belum ada aja
+        if (!$this->session->userdata('peran')) {
+            if (in_array($this->session->userdata('role'), ['super', 'validator_kepeg_satker', 'admin_satker'])) {
+                $this->session->set_userdata('peran', 'admin');
+            } else {
+                $query = $this->model->get_seleksi2('role_presensi', 'userid', $this->session->userdata('userid'), 'hapus', '0');
+                $this->session->set_userdata('peran', $query->num_rows() > 0 ? $query->row()->role : '');
+            }
+        }
     }
 
     private function cek_token($token)
